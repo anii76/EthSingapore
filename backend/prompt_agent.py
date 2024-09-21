@@ -263,7 +263,7 @@ def prompt_model(user_request, wallet_address, get_action=False):
         # below params are missing
         response = send_message(user_request, wallet_address)
     elif action == "irrelevant":
-        return ""  # irrelevant()
+        response = ""  # irrelevant()
     else:
         response = default(user_request)
     if get_action:
