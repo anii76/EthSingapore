@@ -1,7 +1,7 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 from flask import jsonify
-import web3
+from web3 import Web3
 import json
 from backend import *
 import os
@@ -11,20 +11,16 @@ load_dotenv()
 # Set up your OpenAI client
 client = OpenAI(
     base_url='https://api.red-pill.ai/v1',
-    api_key=os.getenv('API_KEY')
+    api_key=os.getenv('OPENAI_API_KEY')
 )
 
-erc20_abi = '''
-[
-    {
-        "constant": true,
-        "inputs": [{"name": "_owner", "type": "address"}],
-        "name": "balanceOf",
-        "outputs": [{"name": "balance", "type": "uint256"}],
-        "type": "function"
-    }
-]
-'''
+INFURA_URL = 'https://rpc.ankr.com/eth'
+# Initialize a Web3 instance
+w3 = Web3(Web3.HTTPProvider(INFURA_URL))
+
+# Load the ABI from a file
+with open('/Users/anfal.bourouina/external/EthSingapore/backend/erc20.abi.json', 'r') as abi_file:
+    erc20_abi = json.load(abi_file)
 
 # Action functions
 def determine_target_contract(user_request):
@@ -36,7 +32,7 @@ def determine_target_contract(user_request):
     completion = client.chat.completions.create(
         model="o1-preview",
         messages=[
-            {"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
+            #{"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
             {"role": "user", "content": prompt},
         ]
     )
@@ -59,7 +55,7 @@ def determine_function_call_structure(user_request, functions):
     completion = client.chat.completions.create(
         model="o1-preview",
         messages=[
-            {"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
+            #{"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
             {"role": "user", "content": prompt},
         ]
     )
@@ -70,32 +66,49 @@ def determine_function_call_structure(user_request, functions):
 def check_balance(wallet_address, messages):
     print("check_balance")
     # Could be eth balance or token balance
-    messages.append({"role": "user", "content": (f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address")}) #or the token name and then we get the address with token_lookup
+    messages.append({"role": "user", "content": ("Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth then striclty return the following json format, example: {'token':'eth', 'chainid':1} else return the token address without any formatting as the following format: {'token':'token_address', 'chainid':1, 'token_name':'USDC'}")}) #or the token name and then we get the address with token_lookup
     answer = client.chat.completions.create(        
         model="o1-preview",
         messages=messages
     )
     answer = answer.choices[0].message.content
+    answer = answer.replace('```json', '').replace('```', '')
     print(answer)
-    if answer == 'eth':
-        if not web3.isConnected():
-            return jsonify({"error": "Error: Failed to connect to the Ethereum network"}), 400 
+    
+    # Check if the connection is successful
+    if not w3.is_connected():
+        print("Unable to connect to the Ethereum network.")
+        exit(1) 
+    answer = json.loads(answer)
+    if answer['token'] == 'eth':
         # Get the balance in Wei
-        balance_wei = web3.eth.get_balance(wallet_address)
+        balance_wei = w3.eth.get_balance(wallet_address)
     
         # Convert the balance to Ether
-        balance_eth = web3.fromWei(balance_wei, 'ether')
+        balance_eth = w3.from_wei(balance_wei, 'ether')
     
         return f"Balance: {balance_eth} ETH"
     else:
         #read the balance of the token
-        token_contract = web3.eth.contract(address=answer, abi=erc20_abi)
+        answer = answer.replace('```', '')
+        print(answer)
+        # Convert the address to its checksummed version
+        token_address = Web3.to_checksum_address(answer)
+        token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
         balance = token_contract.functions.balanceOf(wallet_address).call()
-        balance_token = web3.fromWei(balance, 'ether')  # Adjust the unit if the token has different decimals
+       # Get the number of decimals for the token
+        decimals = token_contract.functions.decimals().call()
+        print(decimals)
+        
+        # Adjust the balance based on the number of decimals
+        balance_token = balance / (10 ** decimals)
         return f"Balance : {balance_token}"
     
 def swap():
     #I'm gonna use uniswap V3 anyway
+    #Use 1inch api
+
+
     
     print("swap")   
 
@@ -150,7 +163,7 @@ def default(user_request):
     "where you would replace the different elements with the relevant parts."
     )
     messages = [
-        {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        #{"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
         {"role": "user", "content": old_prompt},
     ]
 
@@ -175,26 +188,27 @@ def default(user_request):
 def prompt_model(user_request, wallet_address):
     #Not connected prompt
     intro_prompt = (
-        'Based on the following user request: "{user_request}",'
-        'figure out the action requested, the supported actions are : check_balance, swap, transfer, approve, mint, bridge, if the action is not supported return default'
-        'Your response should be a json with the following format, example : {"action": "check_balance"}'
+        f'Based on the following user request: "{user_request}",'
+        'figure out the action requested, the supported actions are : check_balance, swap, transfer, approve, mint, bridge, if the action is not supported return default, if the request is irrelevant (doesn\'t contain any onchain action) return irrelevant'
+        'Your response should be a json with the following format, example : {"action": "check_balance"} or {"action": "irrelevant"}'
     )
     messages = [
-        {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        #{"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
         {"role": "user", "content": intro_prompt},
     ]
-
+    print(messages)
     completion = client.chat.completions.create(        
         model="o1-preview",
         messages=messages
     )
     answer = completion.choices[0].message.content
     answer = answer.replace('```json', '').replace('```', '')
+    print("into prompt_model", answer)
     print(answer)
     answer = json.loads(answer)
     action = answer['action']
     if action == 'check_balance':
-        return check_balance()
+        return check_balance(wallet_address, messages)
     elif action == 'swap':
         return swap()
     elif action == 'transfer':
@@ -209,6 +223,8 @@ def prompt_model(user_request, wallet_address):
     #    return stake()
     #elif action == 'unstake':
     #    return unstake()
+    elif action == 'irrelevant':
+        return ""#irrelevant()
     else:
         return default(user_request)
     

@@ -57,13 +57,13 @@ def handle_json():
         "chainid": 1
     })
 
-@app.route('/check_balance', methods=['GET'])
-def check_balance_route():
-    wallet_address = request.args.get('wallet_address')
-    if wallet_address:
-        return check_balance(wallet_address)
-    else:
-        return "Wallet address is required", 400
+#@app.route('/check_balance', methods=['GET'])
+#def check_balance_route():
+#    wallet_address = request.args.get('wallet_address')
+#    if wallet_address:
+#        return check_balance(wallet_address)
+#    else:
+#        return "Wallet address is required", 400
 
 @app.route('/prompt_model', methods=['GET'])
 def prompt_model_route():
