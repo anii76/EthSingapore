@@ -5,38 +5,56 @@ from web3 import Web3
 import json
 from backend import *
 import os
+from resolve_ens import get_rpc_provider
 
 load_dotenv()
 
 # Set up your OpenAI client
 client = OpenAI(
-    base_url='https://api.red-pill.ai/v1',
-    api_key=os.getenv('OPENAI_API_KEY')
+    base_url="https://api.red-pill.ai/v1", api_key=os.getenv("OPENAI_API_KEY")
 )
 
-INFURA_URL = 'https://rpc.ankr.com/eth'
+INFURA_URL = "https://rpc.ankr.com/eth"
 # Initialize a Web3 instance
-w3 = Web3(Web3.HTTPProvider(INFURA_URL))
+w3 = get_rpc_provider()
 
-# Load the ABI from a file
-with open('/Users/anfal.bourouina/external/EthSingapore/backend/erc20.abi.json', 'r') as abi_file:
-    erc20_abi = json.load(abi_file)
+try:
+    # Load the ABI from a file
+    with open(
+        "/Users/anfal.bourouina/external/EthSingapore/backend/erc20.abi.json", "r"
+    ) as abi_file:
+        erc20_abi = json.load(abi_file)
+except FileNotFoundError:
+    print("ABI file not found. There will raise error")
+
+
+def determine_target_request(user_request):
+    # we need to find if user want to send a message with hashed data
+    reg = re.compile(r"send message (.*) to (.*)")
+    match = reg.match(user_request)
+    if match:
+        return "send_message", match.group(1), match.group(2)
+    else:
+        return "default", user_request
+
 
 # Action functions
 def determine_target_contract(user_request):
     prompt = (
-        f"This is an action that a user would like to make: {user_request}"
-        f"Based on this action, what is the address of the contract that will need to be called?"
+        f"""This is an action that a user would like to make: {user_request}"""
+        "Based on this action, what is the address of the contract that will need to be called?"
+        "return only the contract address, no other words are required"
     )
 
     completion = client.chat.completions.create(
-        model="gpt-3o",
+        model="gpt-4o",
         messages=[
-            #{"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
+            # {"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"},
             {"role": "user", "content": prompt},
         ],
     )
-    return completion.choices[0].message.content
+    address = completion.choices[0].message.content
+    return address
 
 
 def determine_function_call_structure(user_request, functions):
@@ -54,9 +72,9 @@ def determine_function_call_structure(user_request, functions):
     prompt += f"\n\n You should only respond with the call structure, no other words are required. The quotes around the function name and types are necessary, as well as the argument values after, Do not include the '`' backticks"
 
     completion = client.chat.completions.create(
-        model="gpt-3o",
+        model="gpt-4o",
         messages=[
-            #{"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
+            # {"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"},
             {"role": "user", "content": prompt},
         ],
     )
@@ -68,53 +86,54 @@ def determine_function_call_structure(user_request, functions):
 def check_balance(wallet_address, messages):
     print("check_balance")
     # Could be eth balance or token balance
-    messages.append({"role": "user", "content": ("Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth then striclty return the following json format, example: {'token':'eth', 'chainid':1} else return the token address without any formatting as the following format: {'token':'token_address', 'chainid':1, 'token_name':'USDC'}")}) #or the token name and then we get the address with token_lookup
-    answer = client.chat.completions.create(        
-        model="o1-preview",
-        messages=messages
-    )
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address"
+            ),
+        }
+    )  # or the token name and then we get the address with token_lookup
+    answer = client.chat.completions.create(model="gpt-4o", messages=messages)
     answer = answer.choices[0].message.content
-    answer = answer.replace('```json', '').replace('```', '')
+    answer = answer.replace("```json", "").replace("```", "")
     print(answer)
-    
+
     # Check if the connection is successful
     if not w3.is_connected():
         print("Unable to connect to the Ethereum network.")
-        exit(1) 
+        exit(1)
     answer = json.loads(answer)
-    if answer['token'] == 'eth':
+    if answer["token"] == "eth":
         # Get the balance in Wei
         balance_wei = w3.eth.get_balance(wallet_address)
-    
+
         # Convert the balance to Ether
-        balance_eth = w3.from_wei(balance_wei, 'ether')
-    
+        balance_eth = w3.from_wei(balance_wei, "ether")
+
         return f"Balance: {balance_eth} ETH"
     else:
-        #read the balance of the token
-        answer = answer.replace('```', '')
+        # read the balance of the token
+        answer = answer.replace("```", "")
         print(answer)
         # Convert the address to its checksummed version
         token_address = Web3.to_checksum_address(answer)
         token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
         balance = token_contract.functions.balanceOf(wallet_address).call()
-       # Get the number of decimals for the token
+        # Get the number of decimals for the token
         decimals = token_contract.functions.decimals().call()
         print(decimals)
-        
+
         # Adjust the balance based on the number of decimals
-        balance_token = balance / (10 ** decimals)
+        balance_token = balance / (10**decimals)
         return f"Balance : {balance_token}"
 
 
 def swap():
-    #I'm gonna use uniswap V3 anyway
-    #Use 1inch api
+    # I'm gonna use uniswap V3 anyway
+    # Use 1inch api
 
-
-    
-    print("swap")   
-
+    print("swap")
 
     pass
 
@@ -135,7 +154,7 @@ def transfer(messages):
             ),
         }
     )  # or the token name and then we get the address with token_lookup
-    answer = client.chat.completions.create(model="gpt-3o", messages=messages)
+    answer = client.chat.completions.create(model="gpt-4o", messages=messages)
     answer = answer.choices[0].message.content
     for transfer in answer:
         if transfer["token"] == "ETH":
@@ -144,6 +163,20 @@ def transfer(messages):
             pass
         else:  # Construct the calldata or whatever to transfer the erc20 token
             pass
+
+
+def send_message(message: str, address: str) -> None:
+    """## This function will send a message to a user on the blockchain.
+        e.g: I want to message "hello world" to kalzak.eth
+
+    ### Args:
+        - `message (_type_)`: _description_
+        - `address (_type_)`: _description_
+    ### Returns:
+        - `None`: void function
+    """
+    # burry into calldata
+    return message.encode("utf-8").hex()
 
 
 # Approve :
@@ -173,11 +206,11 @@ def default(user_request):
         "where you would replace the different elements with the relevant parts."
     )
     messages = [
-        #{"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        # {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."},
         {"role": "user", "content": old_prompt},
     ]
 
-    completion = client.chat.completions.create(model="gpt-3o", messages=messages)
+    completion = client.chat.completions.create(model="gpt-4o", messages=messages)
 
     answer = completion.choices[0].message.content
     answer = answer.replace("```json", "").replace("```", "")
@@ -191,48 +224,50 @@ def default(user_request):
 
 # flow recieves
 # add a route here
-def prompt_model(user_request, wallet_address):
+def prompt_model(user_request, wallet_address, get_action=False):
     # Not connected prompt
     intro_prompt = (
         f'Based on the following user request: "{user_request}",'
-        'figure out the action requested, the supported actions are : check_balance, swap, transfer, approve, mint, bridge, if the action is not supported return default, if the request is irrelevant (doesn\'t contain any onchain action) return irrelevant'
-        'Your response should be a json with the following format, example : {"action": "check_balance"} or {"action": "irrelevant"}'
+        "figure out the action requested, the supported actions are : [check_balance, swap, transfer, approve, mint, bridge, send_message, irrelevant] if the action is not supported return default"
+        'Your response should be a json with the following format, example : {"action": "check_balance"}'
     )
     messages = [
-        #{"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        # {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."},
         {"role": "user", "content": intro_prompt},
     ]
-    print(messages)
-    completion = client.chat.completions.create(        
-        model="o1-preview",
-        messages=messages
-    )
+
+    completion = client.chat.completions.create(model="gpt-4o", messages=messages)
     answer = completion.choices[0].message.content
-    answer = answer.replace('```json', '').replace('```', '')
+    answer = answer.replace("```json", "").replace("```", "")
     print("into prompt_model", answer)
     print(answer)
     answer = json.loads(answer)
-    action = answer['action']
-    if action == 'check_balance':
-        return check_balance(wallet_address, messages)
-    elif action == 'swap':
-        return swap()
+    action = answer["action"]
+    if action == "check_balance":
+        response = check_balance(wallet_address, messages)
+    elif action == "swap":
+        response = swap()
     elif action == "transfer":
-        return transfer()
+        response = transfer()
     elif action == "approve":
-        return approve()
+        response = approve()
     elif action == "mint":
-        return mint()
+        response = mint()
     elif action == "bridge":
-        return bridge()
+        response = bridge()
     # elif action == 'stake':
-    #    return stake()
+    #    response = stake()
     # elif action == 'unstake':
-    #    return unstake()
-    elif action == 'irrelevant':
-        return ""#irrelevant()
+    #    response = unstake()
+    elif action == "send_message":
+        # below params are missing
+        response = send_message(user_request, wallet_address)
+    elif action == "irrelevant":
+        return ""  # irrelevant()
     else:
-        return default(user_request)
+        response = default(user_request)
+    if get_action:
+        return response, action
 
 
 def ai_agent():

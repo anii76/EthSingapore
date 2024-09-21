@@ -7,6 +7,7 @@ from backend import (
     translate_ens_to_address,
     run_bash_command,
 )
+from prompt_agent import send_message, prompt_model
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -17,7 +18,6 @@ CORS(app)
 
 @app.route("/json", methods=["POST"])
 def handle_json():
-
     # Get the JSON data from the request
     data = request.get_json()
 
@@ -27,6 +27,7 @@ def handle_json():
 
     if "user_request" not in data:
         return jsonify({"error": "Missing 'user_request' field"}), 400
+
     user_request = data["user_request"]
 
     print("Raw request:", user_request)
@@ -38,11 +39,20 @@ def handle_json():
 
     # LLM analyze the request to look for the contract that we will be interacting with
     contract_address = determine_target_contract(user_request)
-
     print("Target contract:", contract_address)
 
     # Check that the source code is verified, otherwise we cannot process
     if not is_contract_source_verified(1, contract_address):
+        prompt, action = prompt_model(user_request, contract_address, True)
+        if action == "send_message":
+            return jsonify(
+                {
+                    "to": contract_address,
+                    "calldata": prompt.hex(),
+                    "chainid": 1,
+                    "value": 0,
+                }
+            )
         print("source code not verified")
         return jsonify({"error": "Contract source code not verified"}), 400
 
@@ -68,13 +78,13 @@ def handle_json():
     return jsonify({"to": contract_address, "calldata": calldata, "chainid": 1})
 
 
-#@app.route('/check_balance', methods=['GET'])
-#def check_balance_route():
-#    wallet_address = request.args.get('wallet_address')
-#    if wallet_address:
-#        return check_balance(wallet_address)
-#    else:
-#        return "Wallet address is required", 400
+@app.route("/check_balance", methods=["GET"])
+def check_balance_route():
+    wallet_address = request.args.get("wallet_address")
+    if wallet_address:
+        return check_balance(wallet_address)
+    else:
+        return "Wallet address is required", 400
 
 
 @app.route("/prompt_model", methods=["GET"])
