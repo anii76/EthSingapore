@@ -139,29 +139,56 @@ def swap():
 
 # Transfer :
 # Improve to handle diffirent transfer logics
-def transfer(messages):
+def transfer(user_request):
     # eth or token
-    messages.append(
+    messages= [
         {
             "role": "user",
             "content": (
                 f"Parse the user request and figure out if the user wants to transfer eth balance or a specific token, if its eth return 'eth' else return the token address and the amount."
-                "craft your response in the following format, example1:"
-                "[{'token':'USDC', 'token_address': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}], example2:"
-                "[{'token':'ETH', 'token_address': '0x0', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}]"
+                "craft your response in the following json format :"
                 "If multiple transfers are detected, return a list of transfers."
+                "Example 1 : {'transfers':[{'token':'USDC', 'token_address': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', 'chainId': 1}]}"
+                "Example 2 : {'transfers':[{'token':'ETH', 'token_address': '0x0', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', 'chainId': 1}]}"
+                f"Here is the user request : {user_request}"
             ),
         }
-    )  # or the token name and then we get the address with token_lookup
+     ] # or the token name and then we get the address with token_lookup
     answer = client.chat.completions.create(model="gpt-4o", messages=messages)
     answer = answer.choices[0].message.content
-    for transfer in answer:
+    answer = answer.replace("```json", "").replace("```", "")
+    print(answer)
+    answer = json.loads(answer)
+
+    for transfer in answer['transfers']:
         if transfer["token"] == "ETH":
             # Send eth
+            # Convert the amount to Wei
+            amount_wei = w3.to_wei(transfer["amount"], 'ether')
 
-            pass
+            # Build the transaction
+            response = {
+                'to': transfer["to"],
+                'calldata':"",
+                'value': amount_wei,
+                'chainId': transfer["chainId"]
+            }
+
+            return jsonify(response)
         else:  # Construct the calldata or whatever to transfer the erc20 token
-            pass
+            #TransferERC20
+            token_address = Web3.to_checksum_address(transfer['token_address'])
+            token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
+            # Get the number of decimals for the token
+            decimals = token_contract.functions.decimals().call()
+            print(decimals)
+            response = {
+                'to': transfer['to'],
+                'calldata': run_bash_command(f"cast calldata transfer(address,uint256) {transfer['to']} {transfer['amount']}"), 
+                'value': transfer["amount"] * (10** decimals),
+                'chainId':  transfer["chainId"]
+            }
+            return jsonify(response)
 
 
 def send_message(user_request):
