@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from prompt_agent import *
 from backend import get_abi_functions, get_contract_abi_etherscan, is_contract_source_verified, translate_ens_to_address, run_bash_command
 
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/json', methods=['POST'])
 def handle_json():
@@ -14,7 +16,7 @@ def handle_json():
     # Check if the data is valid JSON
     if not data or not isinstance(data, dict):
         return jsonify({"error": "Invalid JSON"}), 400
-    
+
     user_request = data["user_request"]
 
     print("Raw request:", user_request)
@@ -54,6 +56,7 @@ def handle_json():
     return jsonify({
         "to": contract_address,
         "calldata": calldata,
+        "value": 0,
         "chainid": 1
     })
 

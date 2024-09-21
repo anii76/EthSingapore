@@ -36,7 +36,7 @@ def determine_target_contract(user_request):
     completion = client.chat.completions.create(
         model="o1-preview",
         messages=[
-            {"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
+            {"role": "assistant", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
             {"role": "user", "content": prompt},
         ]
     )
@@ -59,7 +59,7 @@ def determine_function_call_structure(user_request, functions):
     completion = client.chat.completions.create(
         model="o1-preview",
         messages=[
-            {"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
+            {"role": "assistant", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
             {"role": "user", "content": prompt},
         ]
     )
@@ -131,7 +131,7 @@ def default(user_request):
     "where you would replace the different elements with the relevant parts."
     )
     messages = [
-        {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        {"role": "assistant", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
         {"role": "user", "content": old_prompt},
     ]
 
@@ -161,7 +161,7 @@ def prompt_model(user_request):
         'Your response should be a json with the following format, example : {"action": "check_balance"}'
     )
     messages = [
-        {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        {"role": "assistant", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
         {"role": "user", "content": intro_prompt},
     ]
 
