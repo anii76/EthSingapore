@@ -6,6 +6,7 @@ import json
 from backend import *
 import os
 from resolve_ens import get_rpc_provider
+from token_lookup import lookup_token_to_address
 
 load_dotenv()
 
@@ -199,9 +200,33 @@ def send_message(user_request):
     }
 
 # Approve :
-def approve():
-    print("NOT IMPLEMENTED")
-    pass
+def approve(user_request):
+    # Figure out the message that the user wants to send
+    intro_prompt = (
+        f'Based on the following user request: "{user_request}"'
+        "Extract the following fields and put them in a json format following the same example structure as follows:"
+        '{"amount": 1234, "ticker": "USDC", "approval_recipient": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"}'
+        "Your output should only be the json data, no additional formatting is needed"
+    )
+    messages = [
+        {"role": "assistant", "content": "You are a parser that reads requests and extracts the relevant information"}, 
+        {"role": "user", "content": intro_prompt},
+    ]
+    completion = client.chat.completions.create(model="gpt-4o", messages=messages)
+    message = json.loads(completion.choices[0].message.content)
+
+    # Lookup the token ticker to find the address
+    token_address = Web3.to_checksum_address(lookup_token_to_address(message["ticker"], 1))
+    token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
+    decimals = token_contract.functions.decimals().call()
+    calldata = run_bash_command(f'cast calldata "approve(address,uint256)" {message["approval_recipient"]} {message["amount"] * (10 ** decimals)}')
+
+    return {
+        "to": token_address,
+        "calldata": calldata,
+        "value": 0,
+        "chainid": 1,
+    }
 
 # Bridge :
 def bridge():
