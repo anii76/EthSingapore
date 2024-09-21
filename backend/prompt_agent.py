@@ -10,9 +10,7 @@ from resolve_ens import get_rpc_provider
 load_dotenv()
 
 # Set up your OpenAI client
-client = OpenAI(
-    base_url="https://api.red-pill.ai/v1", api_key=os.getenv("API_KEY")
-)
+client = OpenAI(base_url="https://api.red-pill.ai/v1", api_key=os.getenv("API_KEY"))
 
 INFURA_URL = "https://rpc.ankr.com/eth"
 # Initialize a Web3 instance
@@ -26,23 +24,11 @@ try:
     # Construct the relative path to the ABI file
     abi_path = os.path.join(script_dir, "erc20.abi.json")
 
-# Load the ABI from the file
-    with open(
-        "erc20.abi.json", "r"
-    ) as abi_file:
+    # Load the ABI from the file
+    with open("erc20.abi.json", "r") as abi_file:
         erc20_abi = json.load(abi_file)
 except FileNotFoundError:
     print("ABI file not found. There will raise error")
-
-
-def determine_target_request(user_request):
-    # we need to find if user want to send a message with hashed data
-    reg = re.compile(r"send message (.*) to (.*)")
-    match = reg.match(user_request)
-    if match:
-        return "send_message", match.group(1), match.group(2)
-    else:
-        return "default", user_request
 
 
 # Action functions
@@ -56,7 +42,10 @@ def determine_target_contract(user_request):
     completion = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "assistant", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
+            {
+                "role": "assistant",
+                "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required",
+            },
             {"role": "user", "content": prompt},
         ],
     )
@@ -81,7 +70,10 @@ def determine_function_call_structure(user_request, functions):
     completion = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "assistant", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
+            {
+                "role": "assistant",
+                "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure",
+            },
             {"role": "user", "content": prompt},
         ],
     )
@@ -182,7 +174,10 @@ def send_message(user_request):
         "Extract what exact message the user intends to send, and only the message, no other words are required"
     )
     messages = [
-        {"role": "assistant", "content": "You are a parser that reads requests and extracts the relevant information"}, 
+        {
+            "role": "assistant",
+            "content": "You are a parser that reads requests and extracts the relevant information",
+        },
         {"role": "user", "content": intro_prompt},
     ]
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
@@ -198,10 +193,12 @@ def send_message(user_request):
         "chainid": 1,
     }
 
+
 # Approve :
 def approve():
     print("NOT IMPLEMENTED")
     pass
+
 
 # Bridge :
 def bridge():
@@ -218,7 +215,10 @@ def default(user_request):
         "where you would replace the different elements with the relevant parts."
     )
     messages = [
-        {"role": "assistant", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        {
+            "role": "assistant",
+            "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it.",
+        },
         {"role": "user", "content": old_prompt},
     ]
 
@@ -245,7 +245,10 @@ def prompt_model(user_request):
         "Your response should be a single word which is one of the supported actions. If it is not supported, then simply say 'default'"
     )
     messages = [
-        {"role": "assistant", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        {
+            "role": "assistant",
+            "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it.",
+        },
         {"role": "user", "content": intro_prompt},
     ]
 
@@ -271,7 +274,7 @@ def prompt_model(user_request):
     elif action == "send_message":
         tx_data = send_message(user_request)
     else:
-        tx_data = default(user_request) 
+        tx_data = default(user_request)
 
     return tx_data
 
