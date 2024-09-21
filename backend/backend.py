@@ -2,6 +2,7 @@ import requests
 import json
 import re
 import subprocess
+from resolve_ens import get_address_from_ens
 
 ETHERSCAN_API_KEY = "S6DR3RDU85Q2X1SCDB8F883I67Z8ID7BEE"
 
@@ -47,7 +48,7 @@ def translate_ens_to_address(input_string):
     
     # Function to use in re.sub that increments the counter
     def replacement(match):
-        return resolve_ens_to_address(match.group(0))
+        return get_address_from_ens(match.group(0))
     
     # Replace matched pattern with "hellothere" followed by the count
     replaced_string = re.sub(pattern, replacement, input_string)
