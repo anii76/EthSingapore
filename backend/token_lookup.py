@@ -16,8 +16,3 @@ def lookup_token_to_address(query, chain_id, limit=1, ignore_listed="false"):
     else:
         print(f"Failed to search tokens. Status code: {response.status_code}")
         return None
-
-#example
-returned = lookup_token_to_address("USDC", 1)
-print(returned)
-    
