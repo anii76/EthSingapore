@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from prompt_agent_2 import determine_target_contract, determine_function_call_structure
+from prompt_agent import *
 from backend import get_abi_functions, get_contract_abi_etherscan, is_contract_source_verified, translate_ens_to_address, run_bash_command
 
 
@@ -56,6 +56,14 @@ def handle_json():
         "calldata": calldata,
         "chainid": 1
     })
+
+@app.route('/check_balance', methods=['GET'])
+def check_balance_route():
+    wallet_address = request.args.get('wallet_address')
+    if wallet_address:
+        return check_balance(wallet_address)
+    else:
+        return "Wallet address is required", 400
 
 if __name__ == '__main__':
     app.run(debug=True)

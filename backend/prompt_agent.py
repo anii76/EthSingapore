@@ -95,7 +95,9 @@ def check_balance(wallet_address, messages):
     
 def swap():
 
+
     print("swap")   
+
 
     pass
 # Transfer :
@@ -115,6 +117,7 @@ def bridge():
     print("bridge")
     pass
 # Generic
+# Pass user input
 # Pass user input
 # figure out the action
 # figure out the contract addresses
