@@ -9,12 +9,9 @@ import os
 load_dotenv()
 
 # Set up your OpenAI client
-client = OpenAI(
-    base_url='https://api.red-pill.ai/v1',
-    api_key=os.getenv('API_KEY')
-)
+client = OpenAI()
 
-erc20_abi = '''
+erc20_abi = """
 [
     {
         "constant": true,
@@ -24,7 +21,8 @@ erc20_abi = '''
         "type": "function"
     }
 ]
-'''
+"""
+
 
 # Action functions
 def determine_target_contract(user_request):
@@ -34,13 +32,17 @@ def determine_target_contract(user_request):
     )
 
     completion = client.chat.completions.create(
-        model="o1-preview",
+        model="gpt-3",
         messages=[
-            {"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
+            {
+                "role": "system",
+                "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required",
+            },
             {"role": "user", "content": prompt},
-        ]
+        ],
     )
     return completion.choices[0].message.content
+
 
 def determine_function_call_structure(user_request, functions):
     prompt = (
@@ -57,173 +59,193 @@ def determine_function_call_structure(user_request, functions):
     prompt += f"\n\n You should only respond with the call structure, no other words are required. The quotes around the function name and types are necessary, as well as the argument values after, Do not include the '`' backticks"
 
     completion = client.chat.completions.create(
-        model="o1-preview",
+        model="gpt-3",
         messages=[
-            {"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
+            {
+                "role": "system",
+                "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure",
+            },
             {"role": "user", "content": prompt},
-        ]
+        ],
     )
 
     return completion.choices[0].message.content
 
-#Improve check_balance, check what the user is holding in their wallet accross chain (Tokens, ETH and NFTs)
+
+# Improve check_balance, check what the user is holding in their wallet accross chain (Tokens, ETH and NFTs)
 def check_balance(wallet_address, messages):
     print("check_balance")
     # Could be eth balance or token balance
-    messages.append({"role": "user", "content": (f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address")}) #or the token name and then we get the address with token_lookup
-    answer = client.chat.completions.create(        
-        model="o1-preview",
-        messages=messages
-    )
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address"
+            ),
+        }
+    )  # or the token name and then we get the address with token_lookup
+    answer = client.chat.completions.create(model="gpt-3", messages=messages)
     answer = answer.choices[0].message.content
     print(answer)
-    if answer == 'eth':
+    if answer == "eth":
         if not web3.isConnected():
-            return jsonify({"error": "Error: Failed to connect to the Ethereum network"}), 400 
+            return (
+                jsonify({"error": "Error: Failed to connect to the Ethereum network"}),
+                400,
+            )
         # Get the balance in Wei
         balance_wei = web3.eth.get_balance(wallet_address)
-    
+
         # Convert the balance to Ether
-        balance_eth = web3.fromWei(balance_wei, 'ether')
-    
+        balance_eth = web3.fromWei(balance_wei, "ether")
+
         return f"Balance: {balance_eth} ETH"
     else:
-        #read the balance of the token
+        # read the balance of the token
         token_contract = web3.eth.contract(address=answer, abi=erc20_abi)
         balance = token_contract.functions.balanceOf(wallet_address).call()
-        balance_token = web3.fromWei(balance, 'ether')  # Adjust the unit if the token has different decimals
+        balance_token = web3.fromWei(
+            balance, "ether"
+        )  # Adjust the unit if the token has different decimals
         return f"Balance : {balance_token}"
-    
-def swap():
-    #I'm gonna use uniswap V3 anyway
-    
-    print("swap")   
 
+
+def swap():
+    # I'm gonna use uniswap V3 anyway
+
+    print("swap")
 
     pass
 
+
 # Transfer :
-# Improve to handle diffirent transfer logics 
-def transfer(messages):  
-    #eth or token 
-    messages.append({"role": "user", "content": (f"Parse the user request and figure out if the user wants to transfer eth balance or a specific token, if its eth return 'eth' else return the token address and the amount." 
-                                                 "craft your response in the following format, example1:"
-                                                 "[{'token':'USDC', 'token_address': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}], example2:"
-                                                 "[{'token':'ETH', 'token_address': '0x0', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}]"
-                                                 "If multiple transfers are detected, return a list of transfers."
-                                                 )}) #or the token name and then we get the address with token_lookup
-    answer = client.chat.completions.create(        
-        model="o1-preview",
-        messages=messages
-    )
+# Improve to handle diffirent transfer logics
+def transfer(messages):
+    # eth or token
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                f"Parse the user request and figure out if the user wants to transfer eth balance or a specific token, if its eth return 'eth' else return the token address and the amount."
+                "craft your response in the following format, example1:"
+                "[{'token':'USDC', 'token_address': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}], example2:"
+                "[{'token':'ETH', 'token_address': '0x0', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}]"
+                "If multiple transfers are detected, return a list of transfers."
+            ),
+        }
+    )  # or the token name and then we get the address with token_lookup
+    answer = client.chat.completions.create(model="gpt-3", messages=messages)
     answer = answer.choices[0].message.content
     for transfer in answer:
-        if transfer['token'] == 'ETH':
-            #Send eth
-            
+        if transfer["token"] == "ETH":
+            # Send eth
 
             pass
-        else :#Construct the calldata or whatever to transfer the erc20 token
-            pass 
+        else:  # Construct the calldata or whatever to transfer the erc20 token
+            pass
 
 
 # Approve :
 def approve():
     print("approve")
     pass
+
+
 # Mint :
 def mint():
     print("mint")
     pass
+
+
 # Bridge :
 def bridge():
     print("bridge")
     pass
 
 
-def default(user_request):  
+def default(user_request):
     old_prompt = (
-    f"User wants to perform the following onchain action: {user_request}. "
-    'Based on the user request figure out the action, the chain id, the contract addresses involved and the receiver address.'
-    "craft your answer striclty in this json format, example :"
-    '{"user_request": "Transfer 10 USDT to 0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "action":"transfer", "amount":"10", "to":"0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "contract_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48", "chainid":1}'
-    "where you would replace the different elements with the relevant parts."
+        f"User wants to perform the following onchain action: {user_request}. "
+        "Based on the user request figure out the action, the chain id, the contract addresses involved and the receiver address."
+        "craft your answer striclty in this json format, example :"
+        '{"user_request": "Transfer 10 USDT to 0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "action":"transfer", "amount":"10", "to":"0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "contract_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48", "chainid":1}'
+        "where you would replace the different elements with the relevant parts."
     )
     messages = [
-        {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        {
+            "role": "system",
+            "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it.",
+        },
         {"role": "user", "content": old_prompt},
     ]
 
-    completion = client.chat.completions.create(
-        model="o1-preview",
-        messages=messages
-    )
+    completion = client.chat.completions.create(model="gpt-3", messages=messages)
 
     answer = completion.choices[0].message.content
-    answer = answer.replace('```json', '').replace('```', '')
+    answer = answer.replace("```json", "").replace("```", "")
     print(answer)
     answer = json.loads(answer)
-    is_verified = is_contract_source_verified(answer['chainid'], answer['contract_address'])  # type: ignore
-    contract_abi_functions = get_abi_functions(get_contract_abi_etherscan(answer['contract_address']))  # type: ignore
+    is_verified = is_contract_source_verified(answer["chainid"], answer["contract_address"])  # type: ignore
+    contract_abi_functions = get_abi_functions(get_contract_abi_etherscan(answer["contract_address"]))  # type: ignore
     print(is_verified)
     print(contract_abi_functions)
 
 
-
-# flow recieves 
-# add a route here 
+# flow recieves
+# add a route here
 def prompt_model(user_request, wallet_address):
-    #Not connected prompt
+    # Not connected prompt
     intro_prompt = (
         'Based on the following user request: "{user_request}",'
-        'figure out the action requested, the supported actions are : check_balance, swap, transfer, approve, mint, bridge, if the action is not supported return default'
+        "figure out the action requested, the supported actions are : check_balance, swap, transfer, approve, mint, bridge, if the action is not supported return default"
         'Your response should be a json with the following format, example : {"action": "check_balance"}'
     )
     messages = [
-        {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+        {
+            "role": "system",
+            "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it.",
+        },
         {"role": "user", "content": intro_prompt},
     ]
 
-    completion = client.chat.completions.create(        
-        model="o1-preview",
-        messages=messages
-    )
+    completion = client.chat.completions.create(model="gpt-3", messages=messages)
     answer = completion.choices[0].message.content
-    answer = answer.replace('```json', '').replace('```', '')
+    answer = answer.replace("```json", "").replace("```", "")
     print(answer)
     answer = json.loads(answer)
-    action = answer['action']
-    if action == 'check_balance':
+    action = answer["action"]
+    if action == "check_balance":
         return check_balance()
-    elif action == 'swap':
+    elif action == "swap":
         return swap()
-    elif action == 'transfer':
+    elif action == "transfer":
         return transfer()
-    elif action == 'approve':
+    elif action == "approve":
         return approve()
-    elif action == 'mint':
+    elif action == "mint":
         return mint()
-    elif action == 'bridge':
+    elif action == "bridge":
         return bridge()
-    #elif action == 'stake':
+    # elif action == 'stake':
     #    return stake()
-    #elif action == 'unstake':
+    # elif action == 'unstake':
     #    return unstake()
     else:
         return default(user_request)
-    
+
 
 def ai_agent():
     print("Welcome to the AI Assistant. Type 'exit' to quit.")
 
     while True:
         user_input = input("User: ")
-        if user_input.lower() == 'exit':
+        if user_input.lower() == "exit":
             print("AI Assistant: Goodbye!")
             break
 
         # Process the user's request using prompt_model
         prompt_model(user_input)
+
 
 if __name__ == "__main__":
     ai_agent()

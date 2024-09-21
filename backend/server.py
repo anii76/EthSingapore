@@ -25,6 +25,8 @@ def handle_json():
     if not data or not isinstance(data, dict):
         return jsonify({"error": "Invalid JSON"}), 400
 
+    if "user_request" not in data:
+        return jsonify({"error": "Missing 'user_request' field"}), 400
     user_request = data["user_request"]
 
     print("Raw request:", user_request)
