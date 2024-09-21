@@ -66,10 +66,11 @@ def determine_function_call_structure(user_request, functions):
 
     return completion.choices[0].message.content
 
+#Improve check_balance, check what the user is holding in their wallet accross chain (Tokens, ETH and NFTs)
 def check_balance(wallet_address, messages):
     print("check_balance")
     # Could be eth balance or token balance
-    messages.append({"role": "user", "content": f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address"}) #or the token name and then we get the address with token_lookup
+    messages.append({"role": "user", "content": (f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address")}) #or the token name and then we get the address with token_lookup
     answer = client.chat.completions.create(        
         model="o1-preview",
         messages=messages
@@ -85,7 +86,7 @@ def check_balance(wallet_address, messages):
         # Convert the balance to Ether
         balance_eth = web3.fromWei(balance_wei, 'ether')
     
-        return "Balance: {balance_eth} ETH"
+        return f"Balance: {balance_eth} ETH"
     else:
         #read the balance of the token
         token_contract = web3.eth.contract(address=answer, abi=erc20_abi)
@@ -94,16 +95,38 @@ def check_balance(wallet_address, messages):
         return f"Balance : {balance_token}"
     
 def swap():
-
-
+    #I'm gonna use uniswap V3 anyway
+    
     print("swap")   
 
 
     pass
+
 # Transfer :
-def transfer():  
-    print("transfer")
-    pass
+# Improve to handle diffirent transfer logics 
+def transfer(messages):  
+    #eth or token 
+    messages.append({"role": "user", "content": (f"Parse the user request and figure out if the user wants to transfer eth balance or a specific token, if its eth return 'eth' else return the token address and the amount." 
+                                                 "craft your response in the following format, example1:"
+                                                 "[{'token':'USDC', 'token_address': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}], example2:"
+                                                 "[{'token':'ETH', 'token_address': '0x0', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'}]"
+                                                 "If multiple transfers are detected, return a list of transfers."
+                                                 )}) #or the token name and then we get the address with token_lookup
+    answer = client.chat.completions.create(        
+        model="o1-preview",
+        messages=messages
+    )
+    answer = answer.choices[0].message.content
+    for transfer in answer:
+        if transfer['token'] == 'ETH':
+            #Send eth
+            
+
+            pass
+        else :#Construct the calldata or whatever to transfer the erc20 token
+            pass 
+
+
 # Approve :
 def approve():
     print("approve")
@@ -116,12 +139,8 @@ def mint():
 def bridge():
     print("bridge")
     pass
-# Generic
-# Pass user input
-# Pass user input
-# figure out the action
-# figure out the contract addresses
-# figure out the token addresses
+
+
 def default(user_request):  
     old_prompt = (
     f"User wants to perform the following onchain action: {user_request}. "
@@ -153,7 +172,7 @@ def default(user_request):
 
 # flow recieves 
 # add a route here 
-def prompt_model(user_request):
+def prompt_model(user_request, wallet_address):
     #Not connected prompt
     intro_prompt = (
         'Based on the following user request: "{user_request}",'
@@ -186,6 +205,10 @@ def prompt_model(user_request):
         return mint()
     elif action == 'bridge':
         return bridge()
+    #elif action == 'stake':
+    #    return stake()
+    #elif action == 'unstake':
+    #    return unstake()
     else:
         return default(user_request)
     

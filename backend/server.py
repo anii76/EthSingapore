@@ -65,5 +65,14 @@ def check_balance_route():
     else:
         return "Wallet address is required", 400
 
+@app.route('/prompt_model', methods=['GET'])
+def prompt_model_route():
+    wallet_address = request.args.get('wallet_address')
+    user_request = request.args.get('user_request')
+    if wallet_address and user_request:
+        return prompt_model(user_request, wallet_address)
+    else:
+        return "Wallet address and user request are required", 400 
+
 if __name__ == '__main__':
     app.run(debug=True)
