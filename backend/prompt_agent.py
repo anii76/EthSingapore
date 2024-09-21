@@ -20,8 +20,15 @@ w3 = get_rpc_provider()
 
 try:
     # Load the ABI from a file
+    # Get the directory of the current script
+    script_dir = os.path.dirname(__file__)
+
+    # Construct the relative path to the ABI file
+    abi_path = os.path.join(script_dir, "erc20.abi.json")
+
+# Load the ABI from the file
     with open(
-        "/Users/anfal.bourouina/external/EthSingapore/backend/erc20.abi.json", "r"
+        "erc20.abi.json", "r"
     ) as abi_file:
         erc20_abi = json.load(abi_file)
 except FileNotFoundError:
