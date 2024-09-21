@@ -1,12 +1,80 @@
 from openai import OpenAI
 from dotenv import load_dotenv
-from flask import jsonify
+from backend import *
+from flask import  jsonify
 import web3
 import json
 
 load_dotenv()
 client = OpenAI()
 
+# # Define user request and contract details
+# user_request = "Transfer 10 USDC to 0x3a52F12E0dbBf46876AdBFcA2c17C0b3a6dBe3d7"
+# contract_address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48"  # USDC contract address on Ethereum
+# contract_function = "transfer"
+
+# #Crafting the new prompt
+# #Check my balance
+# #Transfer this amount to this 
+# #Trade ...
+# old_prompt = (
+#     f"User wants to perform the following onchain action: {user_request}. "
+#     f'Based on the user request figure out the action, the chain id, the contract addresses involved and the reciever address.'
+#     f"craft your answer striclty in this json format, example :"
+#     '{"user_request": "Transfer 10 USDT to 0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "action":"transfer", "amount":"10", "to":"0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "contract_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48", "chainid":1}'
+# )
+
+# messages = [
+#     {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
+#     {"role": "user", "content": old_prompt},
+# ]
+
+# print(messages)
+# completion_1 = client.chat.completions.create(
+#     model="gpt-4o",
+#     messages=messages
+# )
+
+# answer = completion_1.choices[0].message.content
+# answer.replace('```json','').replace('```','')
+# print("eee :",answer)
+# answer = json.loads(answer)
+# is_verified = is_contract_source_verified(answer['chainid'], answer['contract_address']) # type: ignore
+# contract_abi_functions =  get_abi_functions(get_contract_abi_etherscan(answer['contract_address'])) # type: ignore
+# print(is_verified)
+# print(contract_abi_functions)
+
+# new_prompt = (
+#     f"Based on the following contract abi functions : {contract_abi_functions} figure out the appropriate function to do the action and build the calldata needed for an Ethereum transaction."
+#     f"craft your answer striclty in this json format, example :"#  we probably need to know which function was used
+#     "{'to': '0xblahblahblahblahblah', 'calldata': '0x1238291372819378291372891321932132132132131231231232131','chainid': 1}"
+# )
+
+# messages.append({"role": "assistant", "content": completion_1.choices[0].message.content})
+# messages.append({"role": "user", "content": new_prompt})
+
+# completion_2 = client.chat.completions.create(
+#     model="gpt-4o",
+#     messages=messages
+# )   
+
+
+# #parse model answer
+# answer = completion_2.choices[0].message.content
+# answer.replace('```json','').replace('```','')
+# print(answer)
+# answer = json.loads(answer)
+
+
+# print(completion_1.choices[0].message)
+# with open("output.json", "w") as f:
+#     f.write(completion_2.choices[0].message.content)
+
+
+########################################################
+# Templates :
+
+# Example ERC-20 token contract ABI (simplified)
 erc20_abi = '''
 [
     {
@@ -18,45 +86,6 @@ erc20_abi = '''
     }
 ]
 '''
-
-def determine_target_contract(user_request):
-    prompt = (
-        f"This is an action that a user would like to make: {user_request}"
-        f"Based on this action, what is the address of the contract that will need to be called?"
-    )
-
-    completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
-            {"role": "user", "content": prompt},
-        ]
-    )
-    return completion.choices[0].message.content
-
-def determine_function_call_structure(user_request, functions):
-    prompt = (
-        f"This is an on chain action that a user would like to complete: {user_request}.\n"
-        f"Given a list of the following functions:"
-    )
-
-    for function in functions:
-        prompt += f"\n{function}"
-
-    prompt += f"\n\nWhich function should be called and what is the structure of the function call?"
-    prompt += f'\nYou should format your answer as follows: `"function_name(param1_type,param2_type,...)" param1_value param2_value ...`'
-    prompt += f'\nFor example: `"transfer(address,uint256)" 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599 100`'
-    prompt += f"\n\n You should only respond with the call structure, no other words are required. The quotes around the function name and types are necessary, as well as the argument values after, Do not include the '`' backticks"
-
-    completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
-            {"role": "user", "content": prompt},
-        ]
-    )
-
-    return completion.choices[0].message.content
 
 def check_balance(wallet_address, messages):
     print("check_balance")
