@@ -86,7 +86,7 @@ def check_balance(wallet_address, messages):
         return f"Balance : {balance_token}"
     
 def swap():
-    
+
     print("swap")   
 
     pass
@@ -123,18 +123,16 @@ def default(user_request):
         {"role": "user", "content": old_prompt},
     ]
     completion = client.chat.completions.create(
-    model="o1-preview-2024-09-12",
+    model="gpt-4o",
     messages=messages
 )
 
     answer = completion.choices[0].message.content
     answer.replace('```json','').replace('```','')
-    print(answer)
+
     answer = json.loads(answer)
     is_verified = is_contract_source_verified(answer['chainid'], answer['contract_address']) # type: ignore
     contract_abi_functions =  get_abi_functions(get_contract_abi_etherscan(answer['contract_address'])) # type: ignore
-    print(is_verified)
-    print(contract_abi_functions)
 
 
     #return response_json
