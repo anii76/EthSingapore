@@ -34,7 +34,7 @@ def determine_target_contract(user_request):
     )
 
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="o1-preview",
         messages=[
             {"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
             {"role": "user", "content": prompt},
@@ -57,7 +57,7 @@ def determine_function_call_structure(user_request, functions):
     prompt += f"\n\n You should only respond with the call structure, no other words are required. The quotes around the function name and types are necessary, as well as the argument values after, Do not include the '`' backticks"
 
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="o1-preview",
         messages=[
             {"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
             {"role": "user", "content": prompt},
@@ -70,8 +70,8 @@ def check_balance(wallet_address, messages):
     print("check_balance")
     # Could be eth balance or token balance
     messages.append({"role": "user", "content": f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address"}) #or the token name and then we get the address with token_lookup
-    answer = client.chat.completions.create(
-        model="gpt-4o",
+    answer = client.chat.completions.create(        
+        model="o1-preview",
         messages=messages
     )
     answer = answer.choices[0].message.content
