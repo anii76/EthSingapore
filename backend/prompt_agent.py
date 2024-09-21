@@ -4,9 +4,6 @@ from dotenv import load_dotenv
 load_dotenv()
 client = OpenAI()
 
-with open("gitdiff.patch", "r") as f:
-    gitdiff = f.read()
-
 # Define user request and contract details
 user_request = "Transfer 10 USDC to 0xRecipientAddress"
 contract_address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48"  # USDC contract address on Ethereum
