@@ -11,7 +11,7 @@ load_dotenv()
 
 # Set up your OpenAI client
 client = OpenAI(
-    base_url="https://api.red-pill.ai/v1", api_key=os.getenv("OPENAI_API_KEY")
+    base_url="https://api.red-pill.ai/v1", api_key=os.getenv("API_KEY")
 )
 
 INFURA_URL = "https://rpc.ankr.com/eth"
@@ -172,35 +172,40 @@ def transfer(messages):
             pass
 
 
-def send_message(message: str, address: str) -> None:
-    """## This function will send a message to a user on the blockchain.
-        e.g: I want to message "hello world" to kalzak.eth
+def send_message(user_request):
+    # Get the target address that will receive the message
+    target = determine_target_contract(user_request)
 
-    ### Args:
-        - `message (_type_)`: _description_
-        - `address (_type_)`: _description_
-    ### Returns:
-        - `None`: void function
-    """
-    # burry into calldata
-    return message.encode("utf-8").hex()
+    # Figure out the message that the user wants to send
+    intro_prompt = (
+        f'Based on the following user request: "{user_request}"'
+        "Extract what exact message the user intends to send, and only the message, no other words are required"
+    )
+    messages = [
+        {"role": "assistant", "content": "You are a parser that reads requests and extracts the relevant information"}, 
+        {"role": "user", "content": intro_prompt},
+    ]
+    completion = client.chat.completions.create(model="gpt-4o", messages=messages)
+    message = completion.choices[0].message.content
 
+    # Convert the message to hexadecimal
+    hex_message = "0x" + message.encode("utf-8").hex()
+
+    return {
+        "to": target,
+        "calldata": hex_message,
+        "value": 0,
+        "chainid": 1,
+    }
 
 # Approve :
 def approve():
-    print("approve")
+    print("NOT IMPLEMENTED")
     pass
-
-
-# Mint :
-def mint():
-    print("mint")
-    pass
-
 
 # Bridge :
 def bridge():
-    print("bridge")
+    print("NOT IMPLEMENTED")
     pass
 
 
@@ -231,12 +236,13 @@ def default(user_request):
 
 # flow recieves
 # add a route here
-def prompt_model(user_request, wallet_address, get_action=False):
+def prompt_model(user_request):
     # Not connected prompt
     intro_prompt = (
-        f'Based on the following user request: "{user_request}",'
-        "figure out the action requested, the supported actions are : [check_balance, swap, transfer, approve, mint, bridge, send_message, irrelevant] if the action is not supported return default"
-        'Your response should be a json with the following format, example : {"action": "check_balance"}'
+        f'Based on the following user request: "{user_request}"'
+        "Determine if the action requested is supported. The supported actions are: [swap, transfer, approve, mint, bridge, send_message, irrelevant]"
+        "If the action is not supported then return default"
+        "Your response should be a single word which is one of the supported actions. If it is not supported, then simply say 'default'"
     )
     messages = [
         {"role": "assistant", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
@@ -244,48 +250,39 @@ def prompt_model(user_request, wallet_address, get_action=False):
     ]
 
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
-    answer = completion.choices[0].message.content
-    answer = answer.replace("```json", "").replace("```", "")
-    print("into prompt_model", answer)
-    print(answer)
-    answer = json.loads(answer)
-    action = answer["action"]
-    if action == "check_balance":
-        response = check_balance(wallet_address, messages)
-    elif action == "swap":
-        response = swap()
+    action = completion.choices[0].message.content
+
+    # Txdata should always follow this format
+    tx_data = {
+        "to": "",
+        "calldata": "",
+        "value": 0,
+        "chainid": 1,
+    }
+
+    if action == "swap":
+        tx_data = swap(user_request)
     elif action == "transfer":
-        response = transfer()
+        tx_data = transfer(user_request)
     elif action == "approve":
-        response = approve()
-    elif action == "mint":
-        response = mint()
+        tx_data = approve(user_request)
     elif action == "bridge":
-        response = bridge()
-    # elif action == 'stake':
-    #    response = stake()
-    # elif action == 'unstake':
-    #    response = unstake()
+        tx_data = bridge(user_request)
     elif action == "send_message":
-        # below params are missing
-        response = send_message(user_request, wallet_address)
-    elif action == "irrelevant":
-        response = ""  # irrelevant()
+        tx_data = send_message(user_request)
     else:
-        response = default(user_request)
-    if get_action:
-        return response, action
+        tx_data = default(user_request) 
+
+    return tx_data
 
 
 def ai_agent():
     print("Welcome to the AI Assistant. Type 'exit' to quit.")
-
     while True:
         user_input = input("User: ")
         if user_input.lower() == "exit":
             print("AI Assistant: Goodbye!")
             break
-
         # Process the user's request using prompt_model
         prompt_model(user_input)
 
