@@ -1,0 +1,27 @@
+/* ButtonContainer.css */
+.button-container {
+    position: fixed; /* Fixed position relative to the viewport */
+    top: 20px; /* Distance from the top */
+    left: 20px; /* Distance from the left */
+    margin: 0; /* Remove default margin */
+    padding: 15px 20px; /* Add padding for spacing */
+    z-index: 10; /* Ensure it stays above other elements */
+    background-color: rgba(255, 255, 255, 0.8); /* White background with slight transparency */
+    border-radius: 20px; /* Rounded corners for a cloud-like shape */
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15); /* Soft shadow for a floating effect */
+    backdrop-filter: blur(10px); /* Blur effect for a smooth background */
+    transition: box-shadow 0.3s ease, background-color 0.3s ease; /* Smooth transitions */
+    pointer-events: none; /* Prevent the button-container from affecting other elements */
+  }
+  
+  .button-container:hover {
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2); /* Slightly stronger shadow on hover */
+    background-color: rgba(255, 255, 255, 0.9); /* Slightly more opaque background */
+    pointer-events: auto; /* Enable interactions on hover */
+  }
+  
+  /* Additional styling for the button inside if needed */
+  .button-container w3m-button {
+    pointer-events: auto; /* Make sure the button itself is interactable */
+  }
+  

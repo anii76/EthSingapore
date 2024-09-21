@@ -1,0 +1,46 @@
+/* TextBox.css */
+/* Import the Quicksand font with multiple weights */
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600&display=swap');
+
+.text-box-container {
+  display: flex;
+  justify-content: center;
+  align-items: center; /* Center vertically */
+  height: 100vh; /* Full viewport height */
+  padding: 0; /* Remove padding */
+  overflow: hidden; /* Prevent any unwanted scroll */
+  position: absolute; /* Position absolute to center in the viewport */
+  top: 0; /* Align top of the container to the top of the viewport */
+  left: 0; /* Align left of the container to the left of the viewport */
+  right: 0; /* Align right of the container to the right of the viewport */
+  bottom: 0; /* Align bottom of the container to the bottom of the viewport */
+}
+
+.text-box {
+  width: 90%; /* Adjusted width for responsiveness */
+  max-width: 800px; /* Adjusted maximum width for better scaling */
+}
+
+.user-input {
+  width: 90%;
+  padding: 20px; /* Reduced padding for a more compact textbox */
+  font-size: 24px; /* Adjusted text size for better scaling */
+  font-family: 'Quicksand', sans-serif; /* More curved font style */
+  font-weight: 500; /* Medium font weight */
+  border-radius: 20px; /* Reduced rounded corners */
+  border: 2px solid #ccc; /* Border styling */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  outline: none; /* Remove default outline */
+  transition: border-color 0.3s, box-shadow 0.3s; /* Smooth transition for border and shadow */
+  background-color: #fff; /* White background for the textbox */
+}
+
+.user-input:focus {
+  border-color: #007bff; /* Change border color on focus */
+  box-shadow: 0 6px 18px rgba(0, 123, 255, 0.3); /* Stronger shadow on focus */
+}
+
+.user-input::placeholder {
+  color: #999; /* Placeholder text color */
+  opacity: 1; /* Ensure the color applies */
+}
