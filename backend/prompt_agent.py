@@ -9,7 +9,8 @@ import os
 load_dotenv()
 
 # Set up your OpenAI client
-client = OpenAI()
+client = OpenAI(base_url="https://api.red-pill.ai/v1", api_key=os.getenv("API_KEY"))
+
 
 erc20_abi = """
 [
@@ -32,7 +33,7 @@ def determine_target_contract(user_request):
     )
 
     completion = client.chat.completions.create(
-        model="gpt-3",
+        model="gpt-3o",
         messages=[
             {
                 "role": "system",
@@ -59,7 +60,7 @@ def determine_function_call_structure(user_request, functions):
     prompt += f"\n\n You should only respond with the call structure, no other words are required. The quotes around the function name and types are necessary, as well as the argument values after, Do not include the '`' backticks"
 
     completion = client.chat.completions.create(
-        model="gpt-3",
+        model="gpt-3o",
         messages=[
             {
                 "role": "system",
@@ -84,7 +85,7 @@ def check_balance(wallet_address, messages):
             ),
         }
     )  # or the token name and then we get the address with token_lookup
-    answer = client.chat.completions.create(model="gpt-3", messages=messages)
+    answer = client.chat.completions.create(model="gpt-3o", messages=messages)
     answer = answer.choices[0].message.content
     print(answer)
     if answer == "eth":
@@ -134,7 +135,7 @@ def transfer(messages):
             ),
         }
     )  # or the token name and then we get the address with token_lookup
-    answer = client.chat.completions.create(model="gpt-3", messages=messages)
+    answer = client.chat.completions.create(model="gpt-3o", messages=messages)
     answer = answer.choices[0].message.content
     for transfer in answer:
         if transfer["token"] == "ETH":
@@ -179,7 +180,7 @@ def default(user_request):
         {"role": "user", "content": old_prompt},
     ]
 
-    completion = client.chat.completions.create(model="gpt-3", messages=messages)
+    completion = client.chat.completions.create(model="gpt-3o", messages=messages)
 
     answer = completion.choices[0].message.content
     answer = answer.replace("```json", "").replace("```", "")
@@ -208,7 +209,7 @@ def prompt_model(user_request, wallet_address):
         {"role": "user", "content": intro_prompt},
     ]
 
-    completion = client.chat.completions.create(model="gpt-3", messages=messages)
+    completion = client.chat.completions.create(model="gpt-3o", messages=messages)
     answer = completion.choices[0].message.content
     answer = answer.replace("```json", "").replace("```", "")
     print(answer)
