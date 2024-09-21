@@ -1,79 +1,102 @@
 from openai import OpenAI
 from dotenv import load_dotenv
-from backend import *
+from flask import jsonify
+import web3
 import json
+from backend import *
+import os
 
 load_dotenv()
-client = OpenAI()
 
-# Define user request and contract details
-user_request = "Transfer 10 USDC to 0x3a52F12E0dbBf46876AdBFcA2c17C0b3a6dBe3d7"
-contract_address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48"  # USDC contract address on Ethereum
-contract_function = "transfer"
-
-#Crafting the new prompt
-#Check my balance
-#Transfer this amount to this 
-#Trade ...
-old_prompt = (
-    f"User wants to perform the following onchain action: {user_request}. "
-    f'Based on the user request figure out the action, the chain id, the contract addresses involved and the reciever address.'
-    f"craft your answer striclty in this json format, example :"
-    '{"user_request": "Transfer 10 USDT to 0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "action":"transfer", "amount":"10", "to":"0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "contract_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48", "chainid":1}'
+# Set up your OpenAI client
+client = OpenAI(
+    base_url='https://api.red-pill.ai/v1',
+    api_key=os.getenv('API_KEY')
 )
 
-messages = [
-    {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
-    {"role": "user", "content": old_prompt},
+erc20_abi = '''
+[
+    {
+        "constant": true,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "type": "function"
+    }
 ]
+'''
 
-print(messages)
-completion_1 = client.chat.completions.create(
-    model="gpt-4o",
-    messages=messages
-)
+# Action functions
+def determine_target_contract(user_request):
+    prompt = (
+        f"This is an action that a user would like to make: {user_request}"
+        f"Based on this action, what is the address of the contract that will need to be called?"
+    )
 
-answer = completion_1.choices[0].message.content
-answer.replace('```json','').replace('```','')
-print(answer)
-answer = json.loads(answer)
-is_verified = is_contract_source_verified(answer['chainid'], answer['contract_address']) # type: ignore
-contract_abi_functions =  get_abi_functions(get_contract_abi_etherscan(answer['contract_address'])) # type: ignore
-print(is_verified)
-print(contract_abi_functions)
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You detect the target contract address based on the user's request. You should only state the address, no formatting or other words are required"}, 
+            {"role": "user", "content": prompt},
+        ]
+    )
+    return completion.choices[0].message.content
 
-new_prompt = (
-    f"Based on the following contract abi functions : {contract_abi_functions} figure out the appropriate function to do the action and build the calldata needed for an Ethereum transaction."
-    f"craft your answer striclty in this json format, example :"
-    "{'to': '0xblahblahblahblahblah', 'calldata': '0x1238291372819378291372891321932132132132131231231232131','chainid': 1}"
-)
+def determine_function_call_structure(user_request, functions):
+    prompt = (
+        f"This is an on chain action that a user would like to complete: {user_request}.\n"
+        f"Given a list of the following functions:"
+    )
 
-messages.append({"role": "assistant", "content": completion_1.choices[0].message.content})
-messages.append({"role": "user", "content": new_prompt})
+    for function in functions:
+        prompt += f"\n{function}"
 
-completion_2 = client.chat.completions.create(
-    model="gpt-4o",
-    messages=messages
-)   
+    prompt += f"\n\nWhich function should be called and what is the structure of the function call?"
+    prompt += f'\nYou should format your answer as follows: `"function_name(param1_type,param2_type,...)" param1_value param2_value ...`'
+    prompt += f'\nFor example: `"transfer(address,uint256)" 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599 100`'
+    prompt += f"\n\n You should only respond with the call structure, no other words are required. The quotes around the function name and types are necessary, as well as the argument values after, Do not include the '`' backticks"
 
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You analyze a users request and determine the appropriate function call, as well as fill in the arguments based on their request following a specific structure"}, 
+            {"role": "user", "content": prompt},
+        ]
+    )
 
-#parse model answer
-answer = completion_2.choices[0].message.content
-answer.replace('```json','').replace('```','')
-print(answer)
-answer = json.loads(answer)
+    return completion.choices[0].message.content
 
-
-print(completion_1.choices[0].message)
-with open("output.json", "w") as f:
-    f.write(completion_2.choices[0].message.content)
-
-# Templates :
-def check_balance():
+def check_balance(wallet_address, messages):
     print("check_balance")
-    pass
+    # Could be eth balance or token balance
+    messages.append({"role": "user", "content": f"Parse the user request and figure out if the user wants to check their eth balance or the balance of a specific token, if its eth return 'eth' else return the token address"}) #or the token name and then we get the address with token_lookup
+    answer = client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages
+    )
+    answer = answer.choices[0].message.content
+    print(answer)
+    if answer == 'eth':
+        if not web3.isConnected():
+            return jsonify({"error": "Error: Failed to connect to the Ethereum network"}), 400 
+        # Get the balance in Wei
+        balance_wei = web3.eth.get_balance(wallet_address)
+    
+        # Convert the balance to Ether
+        balance_eth = web3.fromWei(balance_wei, 'ether')
+    
+        return "Balance: {balance_eth} ETH"
+    else:
+        #read the balance of the token
+        token_contract = web3.eth.contract(address=answer, abi=erc20_abi)
+        balance = token_contract.functions.balanceOf(wallet_address).call()
+        balance_token = web3.fromWei(balance, 'ether')  # Adjust the unit if the token has different decimals
+        return f"Balance : {balance_token}"
+    
 def swap():
+
     print("swap")   
+
     pass
 # Transfer :
 def transfer():  
@@ -92,38 +115,38 @@ def bridge():
     print("bridge")
     pass
 # Generic
-#Pass user input
+# Pass user input
 # figure out the action
 # figure out the contract addresses
 # figure out the token addresses
 def default(user_request):  
     old_prompt = (
     f"User wants to perform the following onchain action: {user_request}. "
-    f'Based on the user request figure out the action, the chain id, the contract addresses involved and the receiver address.'
-    f"craft your answer striclty in this json format, example :"
+    'Based on the user request figure out the action, the chain id, the contract addresses involved and the receiver address.'
+    "craft your answer striclty in this json format, example :"
     '{"user_request": "Transfer 10 USDT to 0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "action":"transfer", "amount":"10", "to":"0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "contract_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48", "chainid":1}'
+    "where you would replace the different elements with the relevant parts."
     )
     messages = [
         {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
         {"role": "user", "content": old_prompt},
     ]
+
     completion = client.chat.completions.create(
-    model="o1-preview-2024-09-12",
-    messages=messages
-)
+        model="o1-preview",
+        messages=messages
+    )
 
     answer = completion.choices[0].message.content
-    answer.replace('```json','').replace('```','')
+    answer = answer.replace('```json', '').replace('```', '')
     print(answer)
     answer = json.loads(answer)
-    is_verified = is_contract_source_verified(answer['chainid'], answer['contract_address']) # type: ignore
-    contract_abi_functions =  get_abi_functions(get_contract_abi_etherscan(answer['contract_address'])) # type: ignore
+    is_verified = is_contract_source_verified(answer['chainid'], answer['contract_address'])  # type: ignore
+    contract_abi_functions = get_abi_functions(get_contract_abi_etherscan(answer['contract_address']))  # type: ignore
     print(is_verified)
     print(contract_abi_functions)
 
 
-
-    return response_json
 
 # flow recieves 
 # add a route here 
@@ -138,12 +161,13 @@ def prompt_model(user_request):
         {"role": "system", "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it."}, 
         {"role": "user", "content": intro_prompt},
     ]
+
     completion = client.chat.completions.create(        
-    model="o1-preview-2024-09-12",
-    messages=messages
+        model="o1-preview",
+        messages=messages
     )
     answer = completion.choices[0].message.content
-    answer.replace('```json','').replace('```','')
+    answer = answer.replace('```json', '').replace('```', '')
     print(answer)
     answer = json.loads(answer)
     action = answer['action']
@@ -158,6 +182,22 @@ def prompt_model(user_request):
     elif action == 'mint':
         return mint()
     elif action == 'bridge':
-        return bridge() 
+        return bridge()
     else:
         return default(user_request)
+    
+
+def ai_agent():
+    print("Welcome to the AI Assistant. Type 'exit' to quit.")
+
+    while True:
+        user_input = input("User: ")
+        if user_input.lower() == 'exit':
+            print("AI Assistant: Goodbye!")
+            break
+
+        # Process the user's request using prompt_model
+        prompt_model(user_input)
+
+if __name__ == "__main__":
+    ai_agent()
