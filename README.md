@@ -8,7 +8,7 @@ Maybe you can mention me or this repo in the acknowledgements too
 -->
 <div align="center">
 
-  <h1>EffortlessAI</h1>
+  <h1>Effortl3ssAI</h1>
   
   <p>
     
