@@ -8,6 +8,7 @@ from backend import get_contract_abi_etherscan, get_abi_functions, is_contract_s
 import os
 from resolve_ens import get_rpc_provider
 from token_lookup import lookup_token_to_address
+from utils import *
 
 load_dotenv()
 
@@ -105,7 +106,7 @@ def check_balance(wallet_address, messages):
         print("Unable to connect to the Ethereum network.")
         exit(1)
     answer = json.loads(answer)
-    if answer["token"] == "eth":
+    if answer == "eth":
         # Get the balance in Wei
         balance_wei = w3.eth.get_balance(wallet_address)
 
@@ -130,13 +131,48 @@ def check_balance(wallet_address, messages):
         return f"Balance : {balance_token}"
 
 
-def swap():
-    # I'm gonna use uniswap V3 anyway
-    # Use 1inch api
+def swap(wallet_address, user_request): 
+    message = [
+        {
+            "role": "user",
+            "content": (
+                f"Based on the following user request : '{user_request}', Determine the swap parameters required for the swap, including the addresses of the source and destination tokens and the amount, keep the 'from' field at a zero address. Your response should strictly fellow this json format , example : "
+                '{"swapParams":{"src": "0x111111111117dc0aa78b770fa6a738034120c302","dst": "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3","amount": "100000000000000000", "from": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599","slippage": 1, "disableEstimate": False,"allowPartialFill": False}, "web3RpcUrl": "https://rpc.ankr.com/eth","chainId": 1}'
+            )
+        }
+    ]
+    answer = client.chat.completions.create(model="gpt-4o", messages=message)
+    answer = answer.choices[0].message.content
+    answer = answer.replace("```json", "").replace("```", "")
+    print(answer)
+    answer = json.loads(answer)
 
-    print("swap")
+    swapParams = answer['swapParams']
+    swapParams["from"] = wallet_address
 
-    pass
+    web3, apiRequestUrl = createWeb3Client(answer["chainId"], answer["web3RpcUrl"])
+
+    #Creating the Token Allowance (Approval) Transaction
+    allowance = checkAllowance(swapParams["src"], wallet_address, apiRequestUrl)
+    print("Allowance: ", allowance)
+
+    #Creating call data for token allowance
+    transactionForSign = buildTxForApproveTradeWithRouter(web3, wallet_address,swapParams["src"])
+
+    # Approve it
+    # Sign and send the transaction for approval
+    # approveTxHash = signAndSendTransaction(transactionForSign)
+    #print("Approve tx hash: ", approveTxHash)
+    
+    print(transactionForSign)
+    #Making the swap calldata
+    #Assume Approval is done
+    swapTransaction = buildTxForSwap(apiRequestUrl, swapParams)
+
+    swapTxHash = signAndSendTransaction(swapTransaction)
+    print("Swap tx hash: ", swapTxHash)
+
+    return transactionForSign, swapTransaction
 
 
 # Transfer :
@@ -150,8 +186,8 @@ def transfer(user_request):
                 f"Parse the user request and figure out if the user wants to transfer eth balance or a specific token, if its eth return 'eth' else return the token address and the amount."
                 "craft your response in the following json format :"
                 "If multiple transfers are detected, return a list of transfers."
-                "Example 1 : {'transfers':[{'token':'USDC', 'token_address': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', 'chainId': 1}]}"
-                "Example 2 : {'transfers':[{'token':'ETH', 'token_address': '0x0', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', 'chainId': 1}]}"
+                'Example 1 : {"transfers":[{"token":"USDC", "token_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48", "amount":19, "to":"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", "chainId": 1}]}'
+                'Example 2 : {"transfers":[{"token":"ETH", "token_address": "0x0", "amount":19, "to":"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", "chainId": 1}]}'
                 f"Here is the user request : {user_request}"
             ),
         }
@@ -368,6 +404,7 @@ def default(user_request):
 
 # flow recieves
 # add a route here
+<<<<<<< HEAD
 def prompt_model(user_request, user_wallet):
     # Not connected prompt
     intro_prompt = (
@@ -375,6 +412,14 @@ def prompt_model(user_request, user_wallet):
         "Determine if the action requested is supported. The supported actions are: [swap, transfer, approve, mint, usdc_bridge, send_message, irrelevant]"
         "If the action is not supported then return default"
         "Your response should be a single word which is one of the supported actions. If it is not supported, then simply say 'default'"
+=======
+def prompt_model(wallet_address, user_request):
+    # Not connected prompt
+    intro_prompt = (
+        f'Based on the following user request: "{user_request}",'
+        'figure out the action requested, the supported actions are : swap, transfer, approve, mint, bridge, send_message. If the action is not supported return default, if the request is irrelevant (It doesn\'t contain any onchain action) return irrelevant'
+        'Your response should be a json with the following format, example : {"action": "swap"} if user request contain swap or {"action": "irrelevant"} if the request contain frying eggs'
+>>>>>>> da341c2c21be4624043e2201bb53d7e0a5bb22ed
     )
     messages = [
         {
@@ -385,7 +430,12 @@ def prompt_model(user_request, user_wallet):
     ]
 
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
-    action = completion.choices[0].message.content
+    answer = completion.choices[0].message.content
+    answer = answer.replace('```json', '').replace('```', '')
+    answer = json.loads(answer)
+    action = answer["action"]
+    print(action)
+    print(user_request)
 
     print(action)
 
@@ -398,7 +448,7 @@ def prompt_model(user_request, user_wallet):
     }
 
     if action == "swap":
-        tx_data = swap(user_request)
+        tx_data = swap(wallet_address, user_request)
     elif action == "transfer":
         tx_data = transfer(user_request)
     elif action == "approve":
