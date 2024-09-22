@@ -18,16 +18,20 @@ def handle_json():
     if "user_request" not in data:
         return jsonify({"error": "Missing 'user_request' field"}), 400
     
+    print(data)
+
     # Get the user request from the JSON data
     user_request = data["user_request"]
+    user_wallet = data["user_wallet"]
     print("Raw request:", user_request)
+    print("User wallet:", user_wallet)
 
     # Convert the ENS names to actual addresses
     user_request = translate_ens_to_address(user_request)
     print("Ens resolved:", user_request)
 
     # Match the users request with a specific or generic action
-    response = prompt_model(user_request)
+    response = prompt_model(user_request, user_wallet)
 
     # Return the modified data as JSON response
     return jsonify(response)

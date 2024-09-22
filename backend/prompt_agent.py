@@ -4,6 +4,7 @@ from flask import jsonify
 from web3 import Web3
 import json
 from backend import *
+from backend import get_contract_abi_etherscan, get_abi_functions, is_contract_source_verified
 import os
 from resolve_ens import get_rpc_provider
 from token_lookup import lookup_token_to_address
@@ -253,46 +254,118 @@ def approve(user_request):
 
 
 # Bridge :
-def bridge():
-    print("NOT IMPLEMENTED")
-    pass
+def usdc_bridge(user_request, user_wallet):
+    # Figure out the message that the user wants to send
+    intro_prompt = (
+        f'Based on the following user request for bridging USDC: "{user_request}"'
+        "Extract the following fields and put them in a json format following the same example structure as follows:"
+        '{"amount": 1234, "source_chain": "ethereum", "destination_chain": "polygon", "ticker": "USDC"}'
+        "Your output should only be the json data, no additional formatting is needed"
+        "For the destination chains, you only support [Ethereum, Avalanche, Optimism, Arbitrum, Base, Polygon]"
+        "Convert the destination chain to be lower case always"
+    )
+    messages = [
+        {"role": "assistant", "content": "You are a parser that reads requests and extracts the relevant information"}, 
+        {"role": "user", "content": intro_prompt},
+    ]
+    completion = client.chat.completions.create(model="gpt-4o", messages=messages)
+    message = completion.choices[0].message.content
+    print(message)
+    message = json.loads(completion.choices[0].message.content)
+    
+    # Lookup the token ticker to find the address
+    token_address = Web3.to_checksum_address(lookup_token_to_address(message["ticker"], 1))
+    token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
+    decimals = token_contract.functions.decimals().call()
+    adjusted_amount = message["amount"] * (10 ** decimals)
 
+    chain_to_domain_dict = {
+        "ethereum": [0, "0xc4922d64a24675e16e1586e3e3aa56c06fabe907"],
+        "avalanche": [1, "0x420f5035fd5dc62a167e7e7f08b604335ae272b8"],
+        "optimism": [2, "0x33E76C5C31cb928dc6FE6487AB3b2C0769B1A1e3"],
+        "arbitrum": [3, "0xE7Ed1fa7f45D05C508232aa32649D89b73b8bA48"],
+        "base": [6, "0xe45B133ddc64bE80252b0e9c75A8E74EF280eEd6"],
+        "polygon": [7, "0x10f7835F827D6Cf035115E10c50A853d7FB2D2EC"],
+    }
 
+    destination_domain = chain_to_domain_dict[message["destination_chain"]][0]
+    source_address = chain_to_domain_dict[message["source_chain"]][1]
+
+    user_wallet_bytes32 = "0x" + user_wallet[2:].zfill(64)
+
+    command = f'cast calldata "depositForBurn(uint256,uint32,bytes32,address)" {adjusted_amount} {destination_domain} {user_wallet_bytes32} {token_address}'
+
+    print(command)
+
+    calldata = run_bash_command(command)
+
+    print(source_address)
+    print(calldata)
+
+    return {
+        "to": source_address,
+        "calldata": calldata,
+        "value": 0,
+        "chainid": 1,
+    }
+
+# Example contract for default is incremnting a counter: 0x1e4a3F5B96F5C692bE7F406b5647Fb585A0987E9
 def default(user_request):
-    old_prompt = (
-        f"User wants to perform the following onchain action: {user_request}. "
-        "Based on the user request figure out the action, the chain id, the contract addresses involved and the receiver address."
-        "craft your answer striclty in this json format, example :"
-        '{"user_request": "Transfer 10 USDT to 0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "action":"transfer", "amount":"10", "to":"0x55A714eD22b8FB916f914D83d4285802A22B1Dc8", "contract_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48", "chainid":1}'
-        "where you would replace the different elements with the relevant parts."
+    # Determine which smart contract the user intends to interact with, using an LLM to estimate the contract address if a specific isn't provided
+    target_contract = determine_target_contract(user_request)
+
+    # Ensure this contract is verified so it is safe to be interacted with
+    is_verified = is_contract_source_verified(1, target_contract)
+    if not is_verified:
+        return {
+            "to": "0x0",
+            "calldata": "0x0",
+            "value": 0,
+            "chainid": 1,
+        }
+
+    # Get the ABI functions of the contract
+    abi = get_contract_abi_etherscan(target_contract)
+    functions = get_abi_functions(abi)
+
+    
+    prompt = (
+        f"User wants to perform the following onchain action: {user_request}."
+        f"Your job is to convert this request into a structured string that will be used by a CLI tool to generate calldata"
+        f"Analyze the following functions and determine which function is most relevant, and provide the appropriate call structure. The structure is:"
+        f'\n`"<functionname>(<type1>,<type2>,...)" <value1> <value2> ...`'
+        f"Some examples of appropriate structures are:"
+        f'\n`"transfer(address,uint256)" 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D 12345`'
+        f'\n`"increment()"`'
+        f'\n`"assignnumber(uint256,uint256)" 122 933`'
+        f"\nYour output should be exactly a string in the format above, no additional words are required. Do not include the '`' backticks but include the quotes around the function name"
     )
     messages = [
         {
             "role": "assistant",
-            "content": "You are an onchain action tool, given a user request, detect the requested onchain action, analyze it then build calldata to execute it.",
+            "content": "You are a parser that translates human written intentions into a structured format for on-chain execution",
         },
-        {"role": "user", "content": old_prompt},
+        {
+            "role": "user",
+            "content": prompt
+        },
     ]
-
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
 
     answer = completion.choices[0].message.content
-    answer = answer.replace("```json", "").replace("```", "")
+
     print(answer)
-    answer = json.loads(answer)
-    is_verified = is_contract_source_verified(answer["chainid"], answer["contract_address"])  # type: ignore
-    contract_abi_functions = get_abi_functions(get_contract_abi_etherscan(answer["contract_address"]))  # type: ignore
-    print(is_verified)
-    print(contract_abi_functions)
+
+
 
 
 # flow recieves
 # add a route here
-def prompt_model(user_request):
+def prompt_model(user_request, user_wallet):
     # Not connected prompt
     intro_prompt = (
         f'Based on the following user request: "{user_request}"'
-        "Determine if the action requested is supported. The supported actions are: [swap, transfer, approve, mint, bridge, send_message, irrelevant]"
+        "Determine if the action requested is supported. The supported actions are: [swap, transfer, approve, mint, usdc_bridge, send_message, irrelevant]"
         "If the action is not supported then return default"
         "Your response should be a single word which is one of the supported actions. If it is not supported, then simply say 'default'"
     )
@@ -306,6 +379,8 @@ def prompt_model(user_request):
 
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
     action = completion.choices[0].message.content
+
+    print(action)
 
     # Txdata should always follow this format
     tx_data = {
@@ -321,13 +396,14 @@ def prompt_model(user_request):
         tx_data = transfer(user_request)
     elif action == "approve":
         tx_data = approve(user_request)
-    elif action == "bridge":
-        tx_data = bridge(user_request)
+    elif action == "usdc_bridge":
+        tx_data = usdc_bridge(user_request, user_wallet)
     elif action == "send_message":
         tx_data = send_message(user_request)
     else:
         tx_data = default(user_request)
 
+    print(tx_data)
     return tx_data
 
 
