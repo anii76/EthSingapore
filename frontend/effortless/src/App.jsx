@@ -7,10 +7,11 @@ import './ButtonContainer.css';
 
 // Walletconnect imports
 import { createAppKit } from '@reown/appkit/react';
-import { mainnet } from '@reown/appkit/networks'
+import { mainnet, polygon, gnosis, arbitrum } from '@reown/appkit/networks'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { hedara, oasis, sepolia_testnet } from "../utils/networks";
 
 
 const queryClient = new QueryClient()
@@ -18,12 +19,12 @@ const projectId = "9906b8e57582f23e8d6306eef55f38fe";
 
 const wagmiAdapter = new WagmiAdapter({
   projectId,
-  networks: [mainnet]
+  networks: [mainnet, arbitrum, polygon, gnosis, hedara, oasis, sepolia_testnet]
 })
 
 createAppKit({
   adapters: [wagmiAdapter],
-  networks: [mainnet],
+  networks: [mainnet, arbitrum, polygon, gnosis, hedara, oasis, sepolia_testnet],
   metadata: {
     name: 'AppKit',
     description: 'AppKit React Wagmi Example',
@@ -39,9 +40,6 @@ createAppKit({
 })
 
 function App() {
-  const [count, setCount] = useState(0)
-  
-  
   return (
     <div className="App">
       <WagmiProvider config={wagmiAdapter.wagmiConfig}> 
