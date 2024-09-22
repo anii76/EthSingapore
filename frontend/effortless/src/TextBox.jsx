@@ -1,7 +1,7 @@
 // src/TextBox.js
 import React, { useState, useEffect } from 'react';
 import './TextBox.css'; // Import the CSS file
-import { useSendTransaction } from 'wagmi'; // Wagmi hook
+import { useSendTransaction, useAccount } from 'wagmi'; // Wagmi hook
 
 const exampleTexts = [
   "Send 10 ETH to kalzak.eth",
@@ -23,6 +23,7 @@ const TextBox = () => {
 
   // Destructure the useSendTransaction hook to get sendTransaction function
   const { data: hash, sendTransaction } = useSendTransaction();
+  const { address } = useAccount();
 
   useEffect(() => {
     let typingTimeout;
@@ -83,7 +84,8 @@ const TextBox = () => {
   const submitJsonPost = async (message) => {
     const url = 'http://localhost:5000/json'; // Change to your desired localhost endpoint
     const payload = {
-      user_request: message
+      user_request: message,
+      user_wallet: address
     };
 
     try {
