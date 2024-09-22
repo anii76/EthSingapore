@@ -4,7 +4,11 @@ from flask import jsonify
 from web3 import Web3
 import json
 from backend import *
-from backend import get_contract_abi_etherscan, get_abi_functions, is_contract_source_verified
+from backend import (
+    get_contract_abi_etherscan,
+    get_abi_functions,
+    is_contract_source_verified,
+)
 import os
 from resolve_ens import get_rpc_provider
 from token_lookup import lookup_token_to_address
@@ -131,14 +135,14 @@ def check_balance(wallet_address, messages):
         return f"Balance : {balance_token}"
 
 
-def swap(wallet_address, user_request): 
+def swap(wallet_address, user_request):
     message = [
         {
             "role": "user",
             "content": (
                 f"Based on the following user request : '{user_request}', Determine the swap parameters required for the swap, including the addresses of the source and destination tokens and the amount, keep the 'from' field at a zero address. Your response should strictly fellow this json format , example : "
                 '{"swapParams":{"src": "0x111111111117dc0aa78b770fa6a738034120c302","dst": "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3","amount": "100000000000000000", "from": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599","slippage": 1, "disableEstimate": False,"allowPartialFill": False}, "web3RpcUrl": "https://rpc.ankr.com/eth","chainId": 1}'
-            )
+            ),
         }
     ]
     answer = client.chat.completions.create(model="gpt-4o", messages=message)
@@ -147,26 +151,28 @@ def swap(wallet_address, user_request):
     print(answer)
     answer = json.loads(answer)
 
-    swapParams = answer['swapParams']
+    swapParams = answer["swapParams"]
     swapParams["from"] = wallet_address
 
     web3, apiRequestUrl = createWeb3Client(answer["chainId"], answer["web3RpcUrl"])
 
-    #Creating the Token Allowance (Approval) Transaction
+    # Creating the Token Allowance (Approval) Transaction
     allowance = checkAllowance(swapParams["src"], wallet_address, apiRequestUrl)
     print("Allowance: ", allowance)
 
-    #Creating call data for token allowance
-    transactionForSign = buildTxForApproveTradeWithRouter(web3, wallet_address,swapParams["src"])
+    # Creating call data for token allowance
+    transactionForSign = buildTxForApproveTradeWithRouter(
+        web3, wallet_address, swapParams["src"]
+    )
 
     # Approve it
     # Sign and send the transaction for approval
     # approveTxHash = signAndSendTransaction(transactionForSign)
-    #print("Approve tx hash: ", approveTxHash)
-    
+    # print("Approve tx hash: ", approveTxHash)
+
     print(transactionForSign)
-    #Making the swap calldata
-    #Assume Approval is done
+    # Making the swap calldata
+    # Assume Approval is done
     swapTransaction = buildTxForSwap(apiRequestUrl, swapParams)
 
     swapTxHash = signAndSendTransaction(swapTransaction)
@@ -179,7 +185,7 @@ def swap(wallet_address, user_request):
 # Improve to handle diffirent transfer logics
 def transfer(user_request):
     # eth or token
-    messages= [
+    messages = [
         {
             "role": "user",
             "content": (
@@ -191,40 +197,42 @@ def transfer(user_request):
                 f"Here is the user request : {user_request}"
             ),
         }
-     ] # or the token name and then we get the address with token_lookup
+    ]  # or the token name and then we get the address with token_lookup
     answer = client.chat.completions.create(model="gpt-4o", messages=messages)
     answer = answer.choices[0].message.content
     answer = answer.replace("```json", "").replace("```", "")
     print(answer)
     answer = json.loads(answer)
 
-    for transfer in answer['transfers']:
+    for transfer in answer["transfers"]:
         if transfer["token"] == "ETH":
             # Send eth
             # Convert the amount to Wei
-            amount_wei = w3.to_wei(transfer["amount"], 'ether')
+            amount_wei = w3.to_wei(transfer["amount"], "ether")
 
             # Build the transaction
             response = {
-                'to': transfer["to"],
-                'calldata':"",
-                'value': amount_wei,
-                'chainId': transfer["chainId"]
+                "to": transfer["to"],
+                "calldata": "",
+                "value": amount_wei,
+                "chainId": transfer["chainId"],
             }
 
             return jsonify(response)
         else:  # Construct the calldata or whatever to transfer the erc20 token
-            #TransferERC20
-            token_address = Web3.to_checksum_address(transfer['token_address'])
+            # TransferERC20
+            token_address = Web3.to_checksum_address(transfer["token_address"])
             token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
             # Get the number of decimals for the token
             decimals = token_contract.functions.decimals().call()
             print(decimals)
             response = {
-                'to': transfer['to'],
-                'calldata': run_bash_command(f"cast calldata transfer(address,uint256) {transfer['to']} {transfer['amount']}"), 
-                'value': transfer["amount"] * (10** decimals),
-                'chainId':  transfer["chainId"]
+                "to": transfer["to"],
+                "calldata": run_bash_command(
+                    f"cast calldata transfer(address,uint256) {transfer['to']} {transfer['amount']}"
+                ),
+                "value": transfer["amount"] * (10**decimals),
+                "chainId": transfer["chainId"],
             }
             return jsonify(response)
 
@@ -269,17 +277,24 @@ def approve(user_request):
         "Your output should only be the json data, no additional formatting is needed"
     )
     messages = [
-        {"role": "assistant", "content": "You are a parser that reads requests and extracts the relevant information"}, 
+        {
+            "role": "assistant",
+            "content": "You are a parser that reads requests and extracts the relevant information",
+        },
         {"role": "user", "content": intro_prompt},
     ]
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
     message = json.loads(completion.choices[0].message.content)
 
     # Lookup the token ticker to find the address
-    token_address = Web3.to_checksum_address(lookup_token_to_address(message["ticker"], 1))
+    token_address = Web3.to_checksum_address(
+        lookup_token_to_address(message["ticker"], 1)
+    )
     token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
     decimals = token_contract.functions.decimals().call()
-    calldata = run_bash_command(f'cast calldata "approve(address,uint256)" {message["approval_recipient"]} {message["amount"] * (10 ** decimals)}')
+    calldata = run_bash_command(
+        f'cast calldata "approve(address,uint256)" {message["approval_recipient"]} {message["amount"] * (10 ** decimals)}'
+    )
 
     return {
         "to": token_address,
@@ -301,19 +316,24 @@ def usdc_bridge(user_request, user_wallet):
         "Convert the destination chain to be lower case always"
     )
     messages = [
-        {"role": "assistant", "content": "You are a parser that reads requests and extracts the relevant information"}, 
+        {
+            "role": "assistant",
+            "content": "You are a parser that reads requests and extracts the relevant information",
+        },
         {"role": "user", "content": intro_prompt},
     ]
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
     message = completion.choices[0].message.content
     print(message)
     message = json.loads(completion.choices[0].message.content)
-    
+
     # Lookup the token ticker to find the address
-    token_address = Web3.to_checksum_address(lookup_token_to_address(message["ticker"], 1))
+    token_address = Web3.to_checksum_address(
+        lookup_token_to_address(message["ticker"], 1)
+    )
     token_contract = w3.eth.contract(address=token_address, abi=erc20_abi)
     decimals = token_contract.functions.decimals().call()
-    adjusted_amount = message["amount"] * (10 ** decimals)
+    adjusted_amount = message["amount"] * (10**decimals)
 
     chain_to_domain_dict = {
         "ethereum": [0, "0xc4922d64a24675e16e1586e3e3aa56c06fabe907"],
@@ -345,6 +365,7 @@ def usdc_bridge(user_request, user_wallet):
         "chainid": 1,
     }
 
+
 # Example contract for default is incremnting a counter: 0x1e4a3F5B96F5C692bE7F406b5647Fb585A0987E9
 def default(user_request):
     # Determine which smart contract the user intends to interact with, using an LLM to estimate the contract address if a specific isn't provided
@@ -364,7 +385,6 @@ def default(user_request):
     abi = get_contract_abi_etherscan(target_contract)
     functions = get_abi_functions(abi)
 
-    
     prompt = (
         f"User wants to perform the following onchain action: {user_request}."
         f"Your job is to convert this request into a structured string that will be used by a CLI tool to generate calldata"
@@ -381,10 +401,7 @@ def default(user_request):
             "role": "assistant",
             "content": "You are a parser that translates human written intentions into a structured format for on-chain execution",
         },
-        {
-            "role": "user",
-            "content": prompt
-        },
+        {"role": "user", "content": prompt},
     ]
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
 
@@ -400,26 +417,14 @@ def default(user_request):
     }
 
 
-
-
 # flow recieves
 # add a route here
-<<<<<<< HEAD
-def prompt_model(user_request, user_wallet):
-    # Not connected prompt
-    intro_prompt = (
-        f'Based on the following user request: "{user_request}"'
-        "Determine if the action requested is supported. The supported actions are: [swap, transfer, approve, mint, usdc_bridge, send_message, irrelevant]"
-        "If the action is not supported then return default"
-        "Your response should be a single word which is one of the supported actions. If it is not supported, then simply say 'default'"
-=======
 def prompt_model(wallet_address, user_request):
     # Not connected prompt
     intro_prompt = (
         f'Based on the following user request: "{user_request}",'
-        'figure out the action requested, the supported actions are : swap, transfer, approve, mint, bridge, send_message. If the action is not supported return default, if the request is irrelevant (It doesn\'t contain any onchain action) return irrelevant'
+        "figure out the action requested, the supported actions are : swap, transfer, approve, mint, bridge, send_message. If the action is not supported return default, if the request is irrelevant (It doesn't contain any onchain action) return irrelevant"
         'Your response should be a json with the following format, example : {"action": "swap"} if user request contain swap or {"action": "irrelevant"} if the request contain frying eggs'
->>>>>>> da341c2c21be4624043e2201bb53d7e0a5bb22ed
     )
     messages = [
         {
@@ -431,7 +436,7 @@ def prompt_model(wallet_address, user_request):
 
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
     answer = completion.choices[0].message.content
-    answer = answer.replace('```json', '').replace('```', '')
+    answer = answer.replace("```json", "").replace("```", "")
     answer = json.loads(answer)
     action = answer["action"]
     print(action)
