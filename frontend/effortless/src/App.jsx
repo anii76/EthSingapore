@@ -61,7 +61,7 @@ function App() {
         <QueryClientProvider client={queryClient}>  
           <Background />
           <div className="button-container">
-            <w3m-button />
+            <w3m-account-button />
           </div>
           <ChatArea />
           <TextBox />

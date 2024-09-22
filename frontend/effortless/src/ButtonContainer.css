@@ -21,7 +21,7 @@
   }
   
   /* Additional styling for the button inside if needed */
-  .button-container w3m-button {
+  .button-container w3m-account-button {
     pointer-events: auto; /* Make sure the button itself is interactable */
   }
 
