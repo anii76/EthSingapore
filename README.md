@@ -56,11 +56,9 @@ Effortl3ssAI is a prompt-to-on-chain action solution enabling users to simply pr
 </details>
 
 <!-- Features -->
-### Features
+### Integrations
 
-- Feature 1
-- Feature 2
-- Feature 3
+We leveraged a range of cutting-edge technologies to bring Effortl3ssAI to life. Here’s how everything is pieced together: we used Phala Network to develop our AI agent, which translates user prompts into direct on-chain actions;  to simplify the process of inputting addresses, we integrated the Ethereum Name Service (ENS); for user authentication and wallet connectivity, we integrated Reown AppKit, offers a dual login system with both Web3 wallets for crypto-native users, and Web2 social authentication methods for effortless onboarding Web2 users; for Defi integrations we use 1inch for Swap and Circle for Cross-Chain Transfer.
 
 <!-- Color Reference -->
 ### Color Reference
