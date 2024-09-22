@@ -1,13 +1,13 @@
 import fetch from 'node-fetch';
 
 async function testApp() {
-    const url = 'https://wapo-testnet.phala.network/ipfs/QmaJ2TEv2giTNmVixCtrMo41eBNKRgU68Ub2yELmMP3MSR?key=22a3431b86f9e868';
+    const url = 'https://wapo-testnet.phala.network/ipfs/QmXbaree1WVFduTJ7YXKcohuTQHWH98tH7Y5rwmBhowgKq?key=bf346c9a63385ba5';
 
 
     const data = {
         address: '0x123456789abcdef...', // Replace with an actual Ethereum address
         conversation: [
-            "say 123 viva Phala Network"
+            "I want to transfer 100 USDC to 0x123456789abcdef..."
         ],
         model: 'o1-preview' // You can change this if needed
     };

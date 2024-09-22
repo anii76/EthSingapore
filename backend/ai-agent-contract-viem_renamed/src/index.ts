@@ -14,8 +14,254 @@ import {
 } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import superjson from 'superjson'
-// import { Configuration, OpenAIApi } from 'openai';
-import OpenAI from 'openai';
+import { Web3 } from "web3"; // Import Web3 if it's not already imported
+import { erc20Abi } from "./erc20Abi"; // Import the ERC20 ABI if you have it in a separate file
+
+
+// Infura or any other RPC provider URL
+const INFURA_URL = "https://rpc.ankr.com/eth";
+
+// Initialize a Web3 instance
+const web3 = new Web3(new Web3.providers.HttpProvider(INFURA_URL));
+
+
+// Define the ERC20 ABI directly in the file
+const erc20Abi = [
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "name",
+        "outputs": [
+            {
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_spender",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "approve",
+        "outputs": [
+            {
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "totalSupply",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_from",
+                "type": "address"
+            },
+            {
+                "name": "_to",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "transferFrom",
+        "outputs": [
+            {
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "_owner",
+                "type": "address"
+            }
+        ],
+        "name": "balanceOf",
+        "outputs": [
+            {
+                "name": "balance",
+                "type": "uint256"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "symbol",
+        "outputs": [
+            {
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_to",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "transfer",
+        "outputs": [
+            {
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "_owner",
+                "type": "address"
+            },
+            {
+                "name": "_spender",
+                "type": "address"
+            }
+        ],
+        "name": "allowance",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "payable": true,
+        "stateMutability": "payable",
+        "type": "fallback"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "owner",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "spender",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "value",
+                "type": "uint256"
+            }
+        ],
+        "name": "Approval",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "from",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "to",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "value",
+                "type": "uint256"
+            }
+        ],
+        "name": "Transfer",
+        "type": "event"
+    }
+];
+
+// Example: Now you can use the ABI with web3
+if (erc20Abi) {
+    const tokenAddress = '0xYourTokenAddress';
+    const tokenContract = new web3.eth.Contract(erc20Abi, tokenAddress);
+
+    // Example usage: Call a function from the contract
+    tokenContract.methods.name().call().then((name: string) => {
+        console.log('Token Name:', name);
+    }).catch((error: any) => {
+        console.error('Error:', error);
+    });
+}
+
 
 export const app = new Hono()
 
@@ -133,6 +379,113 @@ app.get('/', async (c) => {
 
 
 
+function swap(chatQuery: string): any {
+    console.log("swap function called");
+    return {}; // return dummy tx_data object
+}
+
+// function transfer(chatQuery: string): any {
+//     console.log("transfer function called");
+//     return {}; // return dummy tx_data object
+// }
+
+async function transfer(apiKey: string, chatQuery: string): Promise<any> {
+    const messages = [
+        {
+            role: "user",
+            content: `Parse the user request and figure out if the user wants to transfer eth balance or a specific token. If it's ETH, return 'eth'; otherwise, return the token address and the amount. Craft your response in the following JSON format: If multiple transfers are detected, return a list of transfers. Example 1: {'transfers':[{'token':'USDC', 'token_address': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', 'chainId': 1}]} Example 2: {'transfers':[{'token':'ETH', 'token_address': '0x0', 'amount':19, 'to':'0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', 'chainId': 1}]} Here is the user request: ${chatQuery}`,
+        },
+    ];
+
+    const response = await fetch('https://api.red-pill.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`, // Replace with your OpenAI API key
+        },
+        body: JSON.stringify({
+            model: "o1-preview",
+            messages: messages
+        })
+    });
+
+    let answer = await response.json();
+    answer = answer.choices[0].message.content.trim();
+    answer = answer.replace("```json", "").replace("```", "");
+    const parsedAnswer = JSON.parse(answer);
+
+    for (const transfer of parsedAnswer.transfers) {
+        if (transfer.token === "ETH") {
+            // Send ETH
+            const amountWei = Web3.utils.toWei(transfer.amount.toString(), "ether");
+
+            // Build the transaction for ETH transfer
+            const ethTransaction = {
+                to: transfer.to,
+                calldata: "",
+                value: amountWei,
+                chainId: transfer.chainId,
+            };
+
+            return ethTransaction;
+        } else {
+            // Transfer ERC20 Token
+            const tokenAddress = Web3.utils.toChecksumAddress(transfer.token_address);
+            // Use the dynamically loaded `erc20Abi`
+            const tokenContract = new web3.eth.Contract(erc20Abi, tokenAddress);
+
+            // Get the token decimals
+            const decimals = await tokenContract.methods.decimals().call();
+
+            async function getCalldata() {
+                try {
+                    const calldata = await runBashCommand(`cast calldata transfer(address,uint256) 0xAddress 100`);
+                    console.log("Calldata:", calldata);
+                } catch (error) {
+                    console.error("Failed to execute bash command:", error);
+                }
+                return calldata;
+            }
+            
+
+            // Build the calldata for ERC20 transfer
+            const calldata = await getCalldata();
+
+            // Build the transaction for ERC20 token transfer
+            let erc20Transaction = {
+                to: transfer.to,
+                calldata: calldata,
+                value: transfer.amount * (10 ** decimals),
+                chainId: transfer.chainId,
+            };
+
+            return erc20Transaction;
+        }
+    }
+}
+
+
+function approve(chatQuery: string): any {
+    console.log("approve function called");
+    return {}; // return dummy tx_data object
+}
+
+function bridge(chatQuery: string): any {
+    console.log("bridge function called");
+    return {}; // return dummy tx_data object
+}
+
+function send_message(chatQuery: string): any {
+    console.log("send_message function called");
+    return {}; // return dummy tx_data object
+}
+
+function default_call(chatQuery: string): any {
+    console.log("default function called");
+    return {}; // return dummy tx_data object
+}
+
+
 
 
 async function getChatCompletion(apiKey: string, model: string, chatQuery: string) {
@@ -178,17 +531,49 @@ async function getChatCompletion(apiKey: string, model: string, chatQuery: strin
     const model = (data.model) ? data.model : 'gpt-4o'
     const chatQuery = (data.conversation && data.conversation.length > 0) ? data.conversation[data.conversation.length - 1] : 'Say 123 I love chocolate'
     // Concatenate the user query with the additional instruction
-    const combinedQuery = `Based on the following user request: "${userQuery}" Determine if the action requested is supported. The supported actions are: [swap, transfer, approve, mint, bridge, send_message, irrelevant]. If the action is not supported then return 'default'. Your response should be a single word which is one of the supported actions. If it is not supported, then simply say 'default'.`;
+    const combinedQuery = `Based on the following user request: "${chatQuery}" Determine if the action requested is supported. The supported actions are: [swap, transfer, approve, mint, bridge, send_message, irrelevant]. If the action is not supported then return 'default'. Your response should be a single word which is one of the supported actions. If it is not supported, then simply say 'default'.`;
+
+    let tx_data = {
+
+        to: "",
+        calldata: "",
+        value: 0,
+        chainId: 1,
+    };
+
+
+
+    const action = await getChatCompletion(apiKey, model, combinedQuery)
+    // Txdata should always follow this format
+
+
+    if (action === "swap") {
+        tx_data = swap(chatQuery);
+    } else if (action === "transfer") {
+        tx_data = transfer(apiKey, chatQuery);
+    } else if (action === "approve") {
+        tx_data = approve(chatQuery);
+    } else if (action === "bridge") {
+        tx_data = bridge(chatQuery);
+    } else if (action === "send_message") {
+        tx_data = send_message(chatQuery);
+    } else {
+        tx_data = default_call(chatQuery);
+    }
+
+    // result.message = action
 
     let result = {
         model,
         chatQuery: chatQuery,  // Keep the original user query here for reference
-        message: ''
+        message: action,
+        tx_data: tx_data
     };
 
-    result.message = await getChatCompletion(apiKey, model, combinedQuery)
+    // result.tx_data = tx_data
 
     return c.json(result)
+
   });
 
 
