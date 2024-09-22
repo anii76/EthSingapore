@@ -417,9 +417,40 @@ def default(user_request):
     }
 
 
+# Example contract for default is incremnting a counter: 0x1e4a3F5B96F5C692bE7F406b5647Fb585A0987E9
+def irrelivent(user_request):
+
+    # Determine which smart contract the user intends to interact with, using an LLM to estimate the contract address if a specific isn't provided
+    target_contract = determine_target_contract(user_request)
+
+    prompt = (
+        f"user wants to know something about something '{user_request}'"
+        f"answer him like a human with a nice attitue"
+        f"act human, give human answer, be friendly, you are a friend"
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "content": "You are a human, and the user has asked you a question that is not related to on-chain actions. Answer the user as you would in a normal conversation.",
+        },
+        {"role": "user", "content": prompt},
+    ]
+    completion = client.chat.completions.create(model="gpt-4o", messages=messages)
+
+    reply = completion.choices[0].message.content
+
+    return {
+        "to": target_contract,
+        "calldata": reply,
+        "value": 0,
+        "chainid": 1,
+        "type": "reply",
+    }
+
+
 # flow recieves
 # add a route here
-def prompt_model(wallet_address, user_request):
+def prompt_model(user_request, wallet_address):
     # Not connected prompt
     intro_prompt = (
         f'Based on the following user request: "{user_request}",'
@@ -435,14 +466,13 @@ def prompt_model(wallet_address, user_request):
     ]
 
     completion = client.chat.completions.create(model="gpt-4o", messages=messages)
-    answer = completion.choices[0].message.content
-    answer = answer.replace("```json", "").replace("```", "")
-    answer = json.loads(answer)
-    action = answer["action"]
-    print(action)
-    print(user_request)
-
-    print(action)
+    reply = completion.choices[0].message.content
+    try:
+        answer = reply.replace("```json", "").replace("```", "")
+        answer = json.loads(answer)
+        action = answer["action"]
+    except json.decoder.JSONDecodeError:
+        action = "irrelevant"
 
     # Txdata should always follow this format
     tx_data = {
@@ -462,6 +492,9 @@ def prompt_model(wallet_address, user_request):
         tx_data = usdc_bridge(user_request, user_wallet)
     elif action == "send_message":
         tx_data = send_message(user_request)
+    elif action == "irrelevant":
+        tx_data = irrelivent(user_request)
+        tx_data["type"] = "reply"
     else:
         tx_data = default(user_request)
 

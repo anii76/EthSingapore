@@ -1,7 +1,5 @@
 class Api {
-    constructor() {
-        this.url = 'http://localhost:5000';
-    }
+    url = 'http://localhost:5000';
 
     get = async (path) => {
         const response = await fetch(`${this.url}/${path}`);
@@ -40,6 +38,9 @@ class Api {
         const response = await this.post('json', data)
             .then(response => {
                 console.log(response);
+                if (response.type !== 'reply') {
+                    const answer = response.answer;
+                }
                 if (!response.to || !response.calldata) {
                     console.error('Invalid response from server');
                     return;
