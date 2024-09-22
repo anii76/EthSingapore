@@ -354,7 +354,14 @@ def default(user_request):
 
     answer = completion.choices[0].message.content
 
-    print(answer)
+    calldata = run_bash_command(f"cast calldata {answer}")
+
+    return {
+        "to": target_contract,
+        "calldata": calldata,
+        "value": 0,
+        "chainid": 1,
+    }
 
 
 
