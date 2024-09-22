@@ -111,6 +111,10 @@ const TextBox = () => {
           value: responseData.value,
           data: responseData.calldata
         });
+        if (responseData.type === "reply") {
+          const box = document.querySelector('.chat-area');
+          box.innerHTML = `<div class="message">${responseData.calldata}</div>`;
+        }
 
       } else {
         console.error('Failed to send message:', response.statusText);

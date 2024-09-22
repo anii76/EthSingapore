@@ -39,6 +39,21 @@ createAppKit({
   }
 })
 
+function ChatArea() {
+  const [messages, setMessages] = useState([
+    { id: 1, text: 'Hello, how can I help you?' },
+  ]);
+  return (
+    <div className="chat-area">
+      {messages.map((message) => (
+        <div key={message.id} className="message">
+          {message.text}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   return (
     <div className="App">
@@ -48,6 +63,7 @@ function App() {
           <div className="button-container">
             <w3m-button />
           </div>
+          <ChatArea />
           <TextBox />
         </QueryClientProvider>
       </WagmiProvider>
