@@ -7,6 +7,7 @@ from backend import translate_ens_to_address
 app = Flask(__name__)
 CORS(app)
 
+
 @app.route("/json", methods=["POST"])
 def handle_json():
     # Get the JSON data from the request
@@ -17,10 +18,11 @@ def handle_json():
         return jsonify({"error": "Invalid JSON"}), 400
     if "user_request" not in data:
         return jsonify({"error": "Missing 'user_request' field"}), 400
-    
+
     print(data)
 
     # Get the user request from the JSON data
+
     user_request = data["user_request"]
     user_wallet = data["user_wallet"]
     print("Raw request:", user_request)
@@ -35,6 +37,7 @@ def handle_json():
 
     # Return the modified data as JSON response
     return jsonify(response)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
