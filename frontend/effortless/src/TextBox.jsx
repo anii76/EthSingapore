@@ -111,8 +111,8 @@ const TextBox = () => {
           value: responseData.value,
           data: responseData.calldata
         });
-        if (responseData.type === "reply") {
-          const box = document.querySelector('.chat-area');
+        const box = document.querySelector('.chat-area');
+        if (box && responseData.type === "reply") {
           box.innerHTML = `<div class="message">${responseData.calldata}</div>`;
         }
 

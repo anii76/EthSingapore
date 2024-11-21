@@ -63,7 +63,7 @@ function App() {
           <div className="button-container">
             <w3m-account-button />
           </div>
-          <ChatArea />
+          {/* <ChatArea /> */}
           <TextBox />
         </QueryClientProvider>
       </WagmiProvider>
