@@ -138,31 +138,6 @@ Start the server
   yarn start
 ```
 
-
-<!-- Deployment -->
-### Deployment
-
-To deploy this project run
-
-```bash
-  yarn deploy
-```
-
-
-<!-- Usage -->
-## Usage
-
-Use this space to tell a little more about your project and how it can be used. Show additional screenshots, code samples, demos or link to other resources.
-
-
-```javascript
-import Component from 'my-project'
-
-function App() {
-  return <Component />
-}
-```
-
 <!-- Roadmap -->
 ## Roadmap
 
@@ -188,22 +163,10 @@ See `contributing.md` for ways to get started.
 
 Please read the [Code of Conduct](https://github.com/Louis3797/awesome-readme-template/blob/master/CODE_OF_CONDUCT.md)
 
-<!-- FAQ -->
-## FAQ
-
-- Question 1
-
-  + Answer 1
-
-- Question 2
-
-  + Answer 2
-
-
 <!-- License -->
 ## License
 
-Distributed under the no License. See LICENSE.txt for more information.
+Distributed under the no License. See <a href="/LICENCE.txt">LICENSE.txt</a> for more information.
 
 
 <!-- Contact -->
